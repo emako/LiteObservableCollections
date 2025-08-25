@@ -1,5 +1,7 @@
 ﻿using LiteObservableCollections.Extensions;
 using System.Collections;
+using System.Collections.Specialized;
+using System.Reflection;
 
 namespace LiteObservableCollections;
 
@@ -20,15 +22,18 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
         {
             var oldValue = _items[index];
             _items[index] = value;
-            CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+            SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
             {
                 NewValues = [value],
                 OldValues = [oldValue]
             });
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldValue, index));
         }
     }
 
-    public event CollectionChangeEventHandler<T>? CollectionChanged;
+    public event CollectionChangeEventHandler<T>? SourceCollectionChanged;
+
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
     public ObservableList()
     {
@@ -60,26 +65,28 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
     {
         if (items == null) throw new ArgumentNullException(nameof(items));
         var added = items.ToArray();
-
+        int startIndex = _items.Count;
         foreach (var item in added)
             _items.Add(item);
-
-        CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
         {
             NewValues = added
         });
+        if (added.Length > 0)
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, added, startIndex));
     }
 
     public void Clear()
     {
         if (Count == 0) return;
 
-        T[] oldValues = CollectionChanged == null ? [] : [.. _items];
+        T[] oldValues = SourceCollectionChanged == null ? [] : [.. _items];
         _items.Clear();
-        CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
         {
             OldValues = oldValues
         });
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     bool ICollection<T>.Contains(T item) => _items.Contains(item);
@@ -117,17 +124,17 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
         }
         else
         {
-            IList<T> removed = CollectionChanged == null ? Array.Empty<T>() : new List<T>();
+            IList<T> removed = SourceCollectionChanged == null ? Array.Empty<T>() : new List<T>();
 
             while (Count > maxSize)
             {
-                if (CollectionChanged != null)
+                if (SourceCollectionChanged != null)
                     removed.Add(this[0]);
                 _items.RemoveAt(0);
             }
 
             if (removed.Any())
-                CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+                SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
                 {
                     OldValues = (IReadOnlyList<T>)removed
                 });
@@ -145,17 +152,17 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
         }
         else
         {
-            IList<T> removed = CollectionChanged == null ? Array.Empty<T>() : new List<T>();
+            IList<T> removed = SourceCollectionChanged == null ? Array.Empty<T>() : new List<T>();
 
             while (Count > maxSize)
             {
-                if (CollectionChanged != null)
+                if (SourceCollectionChanged != null)
                     removed.Add(this[LastIndex]);
                 _items.RemoveAt(LastIndex);
             }
 
             if (removed.Any())
-                CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+                SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
                 {
                     OldValues = (IReadOnlyList<T>)removed
                 });
@@ -195,13 +202,13 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
         foreach (var index in this.IndexesOf(item).OrderByDescending(x => x))
             _items.RemoveAt(index);
 
-        if (CollectionChanged != null && originalCount > Count)
+        if (SourceCollectionChanged != null && originalCount > Count)
         {
             var items = new List<T>();
             for (var i = 0; i < originalCount - Count; i++)
                 items.Add(item);
 
-            CollectionChanged.Invoke(this, new CollectionChangeEventArgs<T>
+            SourceCollectionChanged.Invoke(this, new CollectionChangeEventArgs<T>
             {
                 OldValues = items
             });
@@ -231,7 +238,7 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
         foreach (var index in indexes.OrderByDescending(x => x))
             _items.RemoveAt(index);
 
-        CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
         {
             OldValues = list
         });
@@ -250,18 +257,18 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
     public void TryRemoveAll(Func<T, bool> predicate)
     {
         if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        IList<T> removedItems = CollectionChanged == null ? Array.Empty<T>() : new List<T>();
+        IList<T> removedItems = SourceCollectionChanged == null ? Array.Empty<T>() : new List<T>();
 
         var indexes = this.IndexesOf(predicate);
         foreach (var index in indexes.OrderByDescending(x => x))
         {
-            if (CollectionChanged != null)
+            if (SourceCollectionChanged != null)
                 removedItems.Add(_items[index]);
             _items.RemoveAt(index);
         }
 
-        if (CollectionChanged != null && removedItems.Any())
-            CollectionChanged.Invoke(this, new CollectionChangeEventArgs<T>
+        if (SourceCollectionChanged != null && removedItems.Any())
+            SourceCollectionChanged.Invoke(this, new CollectionChangeEventArgs<T>
             {
                 OldValues = (IReadOnlyList<T>)removedItems
             });
@@ -293,7 +300,7 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
             _items.Insert(index++, item);
 
         if (inserted.Any())
-            CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+            SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
             {
                 NewValues = inserted
             });
@@ -312,7 +319,7 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
         if ((uint)index > (uint)Count) throw new ArgumentOutOfRangeException(nameof(index), string.Format("Can't remove item from {0} : index is expected to be between {1} and {2} but its value was {3}", GetType(), 0, LastIndex, index));
         var item = _items[index];
         _items.RemoveAt(index);
-        CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
         {
             OldValues = [item],
         });
@@ -382,7 +389,7 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
 
         var removedItems = Copy(index, count);
         _items.RemoveRange(index, count);
-        CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
+        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
         {
             OldValues = removedItems
         });

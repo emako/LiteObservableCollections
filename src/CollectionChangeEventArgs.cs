@@ -1,7 +1,5 @@
 ﻿namespace LiteObservableCollections;
 
-public delegate void CollectionChangeEventHandler<T>(object sender, CollectionChangeEventArgs<T> args);
-
 public sealed record CollectionChangeEventArgs<T>
 {
     public IReadOnlyList<T> OldValues

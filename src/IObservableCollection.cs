@@ -2,5 +2,5 @@
 
 public interface IObservableCollection<T>
 {
-    public event CollectionChangeEventHandler<T> CollectionChanged;
+    public event CollectionChangeEventHandler<T> SourceCollectionChanged;
 }

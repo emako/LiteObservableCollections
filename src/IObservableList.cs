@@ -1,9 +1,11 @@
-﻿namespace LiteObservableCollections;
+﻿using System.Collections.Specialized;
+
+namespace LiteObservableCollections;
 
 /// <summary>
 /// An observable, dynamic one-dimensional array.
 /// </summary>
-public interface IObservableList<T> : IList<T>, IReadOnlyList<T>, IObservableCollection<T>
+public interface IObservableList<T> : IList<T>, IReadOnlyList<T>, IObservableCollection<T>, INotifyCollectionChanged
 {
     /// <summary>
     /// Number of elements contained in the collection.
