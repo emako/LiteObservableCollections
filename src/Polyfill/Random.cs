@@ -7,9 +7,12 @@ namespace System;
 internal static class RandomStore
 {
 #if NETSTANDARD || NETFRAMEWORK
+
     public static Random Shared { get; } = new Random();
 
 #else
+
     public static Random Shared => Random.Shared;
+
 #endif
 }
