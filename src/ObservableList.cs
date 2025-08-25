@@ -74,7 +74,7 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
     {
         if (Count == 0) return;
 
-        var oldValues = CollectionChanged == null ? Array.Empty<T>() : _items.ToArray();
+        T[] oldValues = CollectionChanged == null ? [] : [.. _items];
         _items.Clear();
         CollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
         {
@@ -220,7 +220,7 @@ public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
     public void RemoveAll(IEnumerable<T> items)
     {
         if (items == null) throw new ArgumentNullException(nameof(items));
-        var list = items as IReadOnlyList<T> ?? items.ToList();
+        var list = items as IReadOnlyList<T> ?? [.. items];
 
         if (!list.Any())
             throw new ArgumentException($"{nameof(items)} should not be empty");
