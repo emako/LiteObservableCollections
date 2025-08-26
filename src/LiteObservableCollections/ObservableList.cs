@@ -12,6 +12,8 @@ namespace LiteObservableCollections;
 /// </summary>
 public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    private const string IndexerName = "Item[]";
+
     private readonly List<T> _items;
 
     /// <summary>
@@ -62,7 +64,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         {
             T oldItem = _items[index];
             _items[index] = value;
-            OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+            OnPropertyChanged(IndexerName); // Notify that the this[] has changed
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldItem, index));
         }
     }
@@ -85,7 +87,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Add(item);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1));
     }
 
@@ -100,7 +102,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
             Add(item);
 
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
@@ -116,7 +118,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
 
         _items.RemoveAt(index);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
         return true;
     }
@@ -128,7 +130,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Clear();
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
@@ -174,7 +176,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Insert(index, item);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged("Item[]");
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
     }
 
@@ -187,7 +189,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         T oldItem = _items[index];
         _items.RemoveAt(index);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged("Item[]");
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, index));
     }
 
@@ -207,7 +209,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         T item = _items[oldIndex];
         _items.RemoveAt(oldIndex);
         _items.Insert(newIndex, item);
-        OnPropertyChanged("Item[]");
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
     }
 
