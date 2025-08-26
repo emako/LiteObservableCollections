@@ -41,15 +41,12 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     public void AddRange(IEnumerable<T> items)
     {
         if (items == null) return;
-        var itemsToAdd = items is ICollection<T> col ? [.. col] : items.ToList();
-        if (itemsToAdd.Count == 0) return;
-        int startIndex = _items.Count;
-        foreach (T item in itemsToAdd)
-            _items.Add(item);
+        foreach (T item in items)
+            Add(item);
 
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged("Item[]"); // Notify that the this[] has changed
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset, itemsToAdd, startIndex));
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     public bool Remove(T item)
