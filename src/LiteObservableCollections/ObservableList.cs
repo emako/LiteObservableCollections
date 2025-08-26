@@ -192,6 +192,26 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     }
 
     /// <summary>
+    /// Moves the element at the specified old index to the new index and raises collection change notifications.
+    /// </summary>
+    /// <param name="oldIndex">The zero-based index of the item to move.</param>
+    /// <param name="newIndex">The zero-based index to move the item to.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if oldIndex or newIndex is out of range.</exception>
+    public void Move(int oldIndex, int newIndex)
+    {
+        if (oldIndex < 0 || oldIndex >= _items.Count)
+            throw new ArgumentOutOfRangeException(nameof(oldIndex));
+        if (newIndex < 0 || newIndex >= _items.Count)
+            throw new ArgumentOutOfRangeException(nameof(newIndex));
+        if (oldIndex == newIndex) return;
+        T item = _items[oldIndex];
+        _items.RemoveAt(oldIndex);
+        _items.Insert(newIndex, item);
+        OnPropertyChanged("Item[]");
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+    }
+
+    /// <summary>
     /// Raises the <see cref="PropertyChanged"/> event.
     /// </summary>
     /// <param name="propertyName">The name of the property that changed.</param>
@@ -209,4 +229,11 @@ public interface IObservableList<T> : IList<T>, INotifyCollectionChanged, INotif
     /// </summary>
     /// <param name="items">The collection whose elements should be added to the end of the list.</param>
     public void AddRange(IEnumerable<T> items);
+
+    /// <summary>
+    /// Moves the element at the specified old index to the new index and raises collection change notifications.
+    /// </summary>
+    /// <param name="oldIndex">The zero-based index of the item to move.</param>
+    /// <param name="newIndex">The zero-based index to move the item to.</param>
+    public void Move(int oldIndex, int newIndex);
 }
