@@ -28,6 +28,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     }
 
     public int Count => _items.Count;
+
     public bool IsReadOnly => false;
 
     public void Add(T item)
