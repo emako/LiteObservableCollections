@@ -33,18 +33,23 @@ public partial class TestItem : ObservableObject
 
 public partial class MainViewModel : ObservableObject
 {
-    public static ObservableList<TestItem> List { get; } = [];
+    public static ObservableList<TestItem> List { get; protected set; } = [];
 
-    public ObservableDictionary<int, TestItem> Dict { get; } = [];
+    public ObservableDictionary<int, TestItem> Dict { get; protected set; } = [];
 
-    public ObservableHashSet<TestItem> HashSet { get; } = [];
+    public ObservableHashSet<TestItem> HashSet { get; protected set; } = [];
 
-    public ObservableQueue<TestItem> Queue { get; } = [];
+    public ObservableQueue<TestItem> Queue { get; protected set; } = [];
 
-    public ObservableStack<TestItem> Stack { get; } = [];
+    public ObservableStack<TestItem> Stack { get; protected set; } = [];
 
     private int _dictKey = 1;
     private int _suffix = 1;
+
+    public MainViewModel()
+    {
+        List = new([new TestItem() { Name = "initial" }]);
+    }
 
     [RelayCommand]
     private void AddList()
@@ -55,7 +60,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void RemoveList()
     {
-        List.Remove(List.First());
+        if (List.Count != 0)
+            List.Remove(List.First());
     }
 
     [RelayCommand]
