@@ -11,7 +11,38 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TValue>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    private readonly Dictionary<TKey, TValue> _dict = [];
+    private readonly Dictionary<TKey, TValue> _dict;
+
+    /// <summary>
+    /// Initializes a new empty ObservableDictionary.
+    /// </summary>
+    public ObservableDictionary()
+    {
+        _dict = [];
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableDictionary with the specified Dictionary.
+    /// </summary>
+    /// <param name="dictionary">The Dictionary to initialize from.</param>
+    public ObservableDictionary(Dictionary<TKey, TValue> dictionary)
+    {
+        _dict = dictionary ?? [];
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableDictionary with the specified collection.
+    /// </summary>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableDictionary(IEnumerable<KeyValuePair<TKey, TValue>> collection)
+    {
+        _dict = [];
+        if (collection != null)
+        {
+            foreach (var kv in collection)
+                _dict.Add(kv.Key, kv.Value);
+        }
+    }
 
     /// <summary>
     /// Occurs when the dictionary changes.

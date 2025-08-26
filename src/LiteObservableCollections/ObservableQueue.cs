@@ -9,7 +9,33 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    private readonly Queue<T> _queue = new();
+    private readonly Queue<T> _queue;
+
+    /// <summary>
+    /// Initializes a new empty ObservableQueue.
+    /// </summary>
+    public ObservableQueue()
+    {
+        _queue = new Queue<T>();
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableQueue with the specified Queue.
+    /// </summary>
+    /// <param name="queue">The Queue to initialize from.</param>
+    public ObservableQueue(Queue<T> queue)
+    {
+        _queue = queue ?? new Queue<T>();
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableQueue with the specified collection.
+    /// </summary>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableQueue(IEnumerable<T> collection)
+    {
+        _queue = collection != null ? new Queue<T>(collection) : new Queue<T>();
+    }
 
     /// <summary>
     /// Occurs when the queue changes.

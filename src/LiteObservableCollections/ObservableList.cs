@@ -12,7 +12,33 @@ namespace LiteObservableCollections;
 /// </summary>
 public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    private readonly List<T> _items = [];
+    private readonly List<T> _items;
+
+    /// <summary>
+    /// Initializes a new empty ObservableList.
+    /// </summary>
+    public ObservableList()
+    {
+        _items = [];
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableList with the specified List.
+    /// </summary>
+    /// <param name="list">The List to initialize from.</param>
+    public ObservableList(List<T> list)
+    {
+        _items = list ?? [];
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableList with the specified collection.
+    /// </summary>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableList(IEnumerable<T> collection)
+    {
+        _items = collection != null ? [.. collection] : [];
+    }
 
     /// <summary>
     /// Occurs when the collection changes.

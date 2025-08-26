@@ -9,7 +9,33 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    private readonly HashSet<T> _set = [];
+    private readonly HashSet<T> _set;
+
+    /// <summary>
+    /// Initializes a new empty ObservableHashSet.
+    /// </summary>
+    public ObservableHashSet()
+    {
+        _set = [];
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableHashSet with the specified HashSet.
+    /// </summary>
+    /// <param name="set">The HashSet to initialize from.</param>
+    public ObservableHashSet(HashSet<T> set)
+    {
+        _set = set ?? [];
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableHashSet with the specified collection.
+    /// </summary>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableHashSet(IEnumerable<T> collection)
+    {
+        _set = collection != null ? [.. collection] : [];
+    }
 
     /// <summary>
     /// Occurs when the hash set changes.
@@ -25,7 +51,7 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     /// Gets the number of elements contained in the hash set.
     /// </summary>
     public int Count => _set.Count;
-    
+
     /// <summary>
     /// Gets a value indicating whether the hash set is read-only.
     /// </summary>

@@ -9,7 +9,33 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    private readonly Stack<T> _stack = new();
+    private readonly Stack<T> _stack;
+
+    /// <summary>
+    /// Initializes a new empty ObservableStack.
+    /// </summary>
+    public ObservableStack()
+    {
+        _stack = new Stack<T>();
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableStack with the specified Stack.
+    /// </summary>
+    /// <param name="stack">The Stack to initialize from.</param>
+    public ObservableStack(Stack<T> stack)
+    {
+        _stack = stack ?? new Stack<T>();
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableStack with the specified collection.
+    /// </summary>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableStack(IEnumerable<T> collection)
+    {
+        _stack = collection != null ? new Stack<T>(collection) : new Stack<T>();
+    }
 
     /// <summary>
     /// Occurs when the stack changes.
