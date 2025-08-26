@@ -1,412 +1,109 @@
-﻿using LiteObservableCollections.Extensions;
+﻿using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Collections;
-using System.Collections.Specialized;
-using System.Reflection;
 
 namespace LiteObservableCollections;
 
-public class ObservableList<T> : IObservableList<T>, IEquatable<IEnumerable<T>>
+/// <summary>
+/// A lite observable list that supports INotifyCollectionChanged
+/// </summary>
+public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    private readonly List<T> _items;
+    private readonly List<T> _items = [];
 
-    public int Count => _items.Count;
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
-    bool ICollection<T>.IsReadOnly => ((ICollection<T>)_items).IsReadOnly;
-
-    public int LastIndex => _items.LastIndex();
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public T this[int index]
     {
         get => _items[index];
         set
         {
-            var oldValue = _items[index];
+            T oldItem = _items[index];
             _items[index] = value;
-            SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-            {
-                NewValues = [value],
-                OldValues = [oldValue]
-            });
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldValue, index));
+            OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldItem, index));
         }
     }
 
-    public event CollectionChangeEventHandler<T>? SourceCollectionChanged;
+    public int Count => _items.Count;
+    public bool IsReadOnly => false;
 
-    public event NotifyCollectionChangedEventHandler? CollectionChanged;
-
-    public ObservableList()
+    public void Add(T item)
     {
-        _items = [];
+        _items.Add(item);
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1));
     }
 
-    public ObservableList(params T[] items) : this(items as IEnumerable<T>)
+    public void AddRange(IEnumerable<T> items)
     {
-    }
-
-    public ObservableList(IEnumerable<T> collection)
-    {
-        _items = collection?.ToList() ?? throw new ArgumentNullException(nameof(collection));
-    }
-
-    public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    void ICollection<T>.Add(T item) => Add(item);
-
-    public void Add(params T[]? items)
-    {
-        if (items == null) Add(new List<T> { default! });
-        else Add(items as IEnumerable<T>);
-    }
-
-    public void Add(IEnumerable<T> items)
-    {
-        if (items == null) throw new ArgumentNullException(nameof(items));
-        var added = items.ToArray();
+        if (items == null) return;
+        var itemsToAdd = items is ICollection<T> col ? [.. col] : items.ToList();
+        if (itemsToAdd.Count == 0) return;
         int startIndex = _items.Count;
-        foreach (var item in added)
+        foreach (T item in itemsToAdd)
             _items.Add(item);
-        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-        {
-            NewValues = added
-        });
-        if (added.Length > 0)
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, added, startIndex));
+
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset, itemsToAdd, startIndex));
+    }
+
+    public bool Remove(T item)
+    {
+        int index = _items.IndexOf(item);
+        if (index < 0) return false;
+
+        _items.RemoveAt(index);
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        return true;
     }
 
     public void Clear()
     {
-        if (Count == 0) return;
-
-        T[] oldValues = SourceCollectionChanged == null ? [] : [.. _items];
         _items.Clear();
-        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-        {
-            OldValues = oldValues
-        });
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged("Item[]"); // Notify that the this[] has changed
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
-    bool ICollection<T>.Contains(T item) => _items.Contains(item);
+    public bool Contains(T item) => _items.Contains(item);
 
-    void ICollection<T>.CopyTo(T[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+    public void CopyTo(T[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
 
-    public ObservableList<T> Copy(int startingIndex = 0) => Copy(startingIndex, Count - startingIndex);
+    public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
 
-    public ObservableList<T> Copy(int startingIndex, int count)
+    IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
+
+    public int IndexOf(T item) => _items.IndexOf(item);
+
+    public void Insert(int index, T item)
     {
-        if (startingIndex < 0 || startingIndex > LastIndex) throw new ArgumentOutOfRangeException(nameof(startingIndex), string.Format("Can't copy {0} : index is expected to be between {1} and {2} but its value was {3}", GetType(), 0, LastIndex, startingIndex));
-        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), string.Format("Can't copy {0} : count must be a positive number but its value was {1}", GetType(), count));
-        if (Count - startingIndex < count) throw new ArgumentException(string.Format("Can't copy {0} : a range between {1} and {2} is expected but the values of startingIndex and count were {3} and {4} respectively", GetType(), 0, LastIndex, startingIndex, count));
-
-        if (startingIndex == 0 && count == Count) return [.. this];
-
-        var copy = new ObservableList<T>();
-        for (var i = startingIndex; i < startingIndex + count; i++)
-            copy.Add(this[i]);
-        return copy;
+        _items.Insert(index, item);
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged("Item[]");
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
     }
 
-    int IList<T>.IndexOf(T item) => this.FirstIndexOf(item);
-
-    public void Swap(int currentIndex, int destinationIndex) => _items.Swap(currentIndex, destinationIndex);
-
-    public void TrimStartDownTo(int maxSize)
-    {
-        if (maxSize < 0) throw new ArgumentException(string.Format("Can't use TrimStart : maxSize must be a positive number but its value was {0}", maxSize));
-        if (Count == 0) return;
-
-        if (maxSize == 0)
-        {
-            Clear();
-        }
-        else
-        {
-            IList<T> removed = SourceCollectionChanged == null ? Array.Empty<T>() : new List<T>();
-
-            while (Count > maxSize)
-            {
-                if (SourceCollectionChanged != null)
-                    removed.Add(this[0]);
-                _items.RemoveAt(0);
-            }
-
-            if (removed.Any())
-                SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-                {
-                    OldValues = (IReadOnlyList<T>)removed
-                });
-        }
-    }
-
-    public void TrimEndDownTo(int maxSize)
-    {
-        if (maxSize < 0) throw new ArgumentException(string.Format("Can't use TrimEnd : maxSize must be a positive number but its value was {0}", maxSize));
-        if (Count == 0) return;
-
-        if (maxSize == 0)
-        {
-            Clear();
-        }
-        else
-        {
-            IList<T> removed = SourceCollectionChanged == null ? Array.Empty<T>() : new List<T>();
-
-            while (Count > maxSize)
-            {
-                if (SourceCollectionChanged != null)
-                    removed.Add(this[LastIndex]);
-                _items.RemoveAt(LastIndex);
-            }
-
-            if (removed.Any())
-                SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-                {
-                    OldValues = (IReadOnlyList<T>)removed
-                });
-        }
-    }
-
-    public IObservableList<T> Shuffle()
-    {
-        _items.Shuffle();
-        return this;
-    }
-
-    public void Overwrite(params T[]? items)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void Overwrite(IEnumerable<T> items)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void Reverse()
-    {
-        throw new NotImplementedException();
-    }
-
-    public void Reverse(int index, int count)
-    {
-        _items.Reverse();
-        throw new NotImplementedException();
-    }
-
-    public void TryRemoveAll(T item)
-    {
-        var originalCount = Count;
-        foreach (var index in this.IndexesOf(item).OrderByDescending(x => x))
-            _items.RemoveAt(index);
-
-        if (SourceCollectionChanged != null && originalCount > Count)
-        {
-            var items = new List<T>();
-            for (var i = 0; i < originalCount - Count; i++)
-                items.Add(item);
-
-            SourceCollectionChanged.Invoke(this, new CollectionChangeEventArgs<T>
-            {
-                OldValues = items
-            });
-        }
-    }
-
-    public void RemoveAll(T item)
-    {
-        var firstIndex = this.FirstIndexOf(item);
-        if (firstIndex == -1) throw new InvalidOperationException(string.Format("Can't remove item from {0} : {1} is not in collection", GetType(), item));
-        TryRemoveAll(item);
-    }
-
-    public void RemoveAll(params T[] items) => RemoveAll(items as IEnumerable<T>);
-
-    public void RemoveAll(IEnumerable<T> items)
-    {
-        if (items == null) throw new ArgumentNullException(nameof(items));
-        var list = items as IReadOnlyList<T> ?? [.. items];
-
-        if (!list.Any())
-            throw new ArgumentException($"{nameof(items)} should not be empty");
-
-        var indexes = list.Select(item => this.IndexesOf(item)).SelectMany(x => x).ToList();
-        if (indexes.Count != list.Count) throw new InvalidOperationException(string.Format("Can't remove items from {0} : one or more item is not in collection", GetType()));
-
-        foreach (var index in indexes.OrderByDescending(x => x))
-            _items.RemoveAt(index);
-
-        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-        {
-            OldValues = list
-        });
-    }
-
-    public void TryRemoveAll(params T[] items) => TryRemoveAll(items as IEnumerable<T>);
-
-    public void TryRemoveAll(IEnumerable<T> items)
-    {
-        if (items == null) throw new ArgumentNullException(nameof(items));
-        var list = _items.Join(items, x => x, y => y, (x, y) => x).ToList();
-        if (list.Any())
-            RemoveAll(list);
-    }
-
-    public void TryRemoveAll(Func<T, bool> predicate)
-    {
-        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        IList<T> removedItems = SourceCollectionChanged == null ? Array.Empty<T>() : new List<T>();
-
-        var indexes = this.IndexesOf(predicate);
-        foreach (var index in indexes.OrderByDescending(x => x))
-        {
-            if (SourceCollectionChanged != null)
-                removedItems.Add(_items[index]);
-            _items.RemoveAt(index);
-        }
-
-        if (SourceCollectionChanged != null && removedItems.Any())
-            SourceCollectionChanged.Invoke(this, new CollectionChangeEventArgs<T>
-            {
-                OldValues = (IReadOnlyList<T>)removedItems
-            });
-    }
-
-    public void RemoveAll(Func<T, bool> predicate)
-    {
-        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        var firstIndex = this.FirstIndexOf(predicate);
-        if (firstIndex == -1) throw new InvalidOperationException(string.Format("Can't remove item from {0} : there is no item corresponding to predicate in collection", GetType()));
-        TryRemoveAll(predicate);
-    }
-
-    void IList<T>.Insert(int index, T item) => Insert(index, item);
-
-    public void Insert(int index, params T[] items) => Insert(index, items as IEnumerable<T>);
-
-    public void Insert(params T[] items) => Insert(items == null! ? [default!] : items as IEnumerable<T>);
-
-    public void Insert(IEnumerable<T> items) => Insert(0, items);
-
-    public void Insert(int index, IEnumerable<T> items)
-    {
-        if (items == null) throw new ArgumentNullException(nameof(items));
-
-        var inserted = items.ToArray();
-
-        foreach (var item in inserted)
-            _items.Insert(index++, item);
-
-        if (inserted.Any())
-            SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-            {
-                NewValues = inserted
-            });
-    }
-
-    bool ICollection<T>.Remove(T item)
-    {
-        var wasInCollection = _items.Contains(item);
-        TryRemoveFirst(item);
-        return wasInCollection;
-    }
-
-    //TODO Isn't it LastIndex instead of Count?? And we don't check if it's negative??
     public void RemoveAt(int index)
     {
-        if ((uint)index > (uint)Count) throw new ArgumentOutOfRangeException(nameof(index), string.Format("Can't remove item from {0} : index is expected to be between {1} and {2} but its value was {3}", GetType(), 0, LastIndex, index));
-        var item = _items[index];
+        T oldItem = _items[index];
         _items.RemoveAt(index);
-        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-        {
-            OldValues = [item],
-        });
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged("Item[]");
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, index));
     }
 
-    public void TryRemoveFirst(T item)
-    {
-        var index = this.FirstIndexOf(item);
-        if (index > -1)
-            RemoveAt(index);
-    }
+    private void OnPropertyChanged(string propertyName) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}
 
-    public void RemoveFirst(T item)
-    {
-        var index = this.FirstIndexOf(item);
-        RemoveAt(index);
-    }
-
-    public void TryRemoveFirst(Func<T, bool> predicate)
-    {
-        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        var index = this.FirstIndexOf(predicate);
-        if (index > -1)
-            RemoveAt(index);
-    }
-
-    public void RemoveFirst(Func<T, bool> predicate)
-    {
-        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        var index = this.FirstIndexOf(predicate);
-        RemoveAt(index);
-    }
-
-    public void TryRemoveLast(T item)
-    {
-        var index = this.LastIndexOf(item);
-        if (index > -1)
-            RemoveAt(index);
-    }
-
-    public void RemoveLast(T item)
-    {
-        var index = this.LastIndexOf(item);
-        RemoveAt(index);
-    }
-
-    public void TryRemoveLast(Func<T, bool> predicate)
-    {
-        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        var index = this.LastIndexOf(predicate);
-        if (index > -1)
-            RemoveAt(index);
-    }
-
-    public void RemoveLast(Func<T, bool> predicate)
-    {
-        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-        var index = this.LastIndexOf(predicate);
-        RemoveAt(index);
-    }
-
-    public void RemoveAt(int index, int count)
-    {
-        if (index < 0 || index > LastIndex) throw new ArgumentOutOfRangeException(nameof(index), string.Format("Can't remove item from {0} : index is expected to be between {1} and {2} but its value was {3}", GetType(), 0, LastIndex, index));
-        if (count <= 0) throw new ArgumentException(string.Format("Can't remove item from {0} : count must be greater than zero but its value was {1}", GetType(), count), nameof(count));
-        if (Count - index < count) throw new ArgumentException(string.Format("Can't remove item from {0} : a range between {1} and {2} is expected but the values of index and count were {3} and {4} respectively", GetType(), 0, LastIndex, index, count), nameof(count));
-
-        var removedItems = Copy(index, count);
-        _items.RemoveRange(index, count);
-        SourceCollectionChanged?.Invoke(this, new CollectionChangeEventArgs<T>
-        {
-            OldValues = removedItems
-        });
-    }
-
-    public override bool Equals(object? other) => Equals(other as IEnumerable<T>);
-
-    public bool Equals(IEnumerable<T>? other)
-    {
-        if (ReferenceEquals(null, other)) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return this.SequenceEqual(other);
-    }
-
-    public static bool operator ==(ObservableList<T>? a, IEnumerable<T>? b) => a is null && b is null || a is not null && a.Equals(b);
-
-    public static bool operator !=(ObservableList<T>? a, IEnumerable<T>? b) => !(a == b);
-
-    public override int GetHashCode() => _items.GetHashCode();
+public interface IObservableList<T> : IList<T>, INotifyCollectionChanged, INotifyPropertyChanged
+{
+    public void AddRange(IEnumerable<T> items);
 }
