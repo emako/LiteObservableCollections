@@ -15,7 +15,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>ObservableCollections MVVM</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<Description>Lite version of ObservableCollections with less features but better performance.</Description>
+		<Description>Lite version of ObservableCollections with fewer features but better performance.</Description>
 		<PackageIcon>Logo.png</PackageIcon>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
         <DebugType>portable</DebugType>
