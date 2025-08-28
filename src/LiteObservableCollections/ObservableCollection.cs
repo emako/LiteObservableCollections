@@ -10,12 +10,23 @@ namespace LiteObservableCollections;
 /// <typeparam name="T">The type of elements in the collection.</typeparam>
 public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    /// <summary>
+    /// Indexer Name to notify that the this[] has changed.
+    /// </summary>
     private const string IndexerName = "Item[]";
 
     /// <summary>
     /// The internal list storing the collection elements.
     /// </summary>
     private readonly List<T> _items;
+
+    /// <summary>
+    /// Indicates the AddRange notification behavior.
+    /// If true, AddRange will trigger CollectionChanged (NotifyCollectionChangedAction.Add) for each item added;
+    /// otherwise, it will only trigger once at the end with NotifyCollectionChangedAction.Add for the whole range.
+    /// This allows for more granular change notifications, enabling UI scenarios such as per-item insertion animations.
+    /// </summary>
+    public bool IsNotifyOnEachAddInRange { get; set; } = false;
 
     /// <summary>
     /// Initializes a new empty ObservableCollection.
@@ -105,18 +116,17 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public void AddRange(IEnumerable<T> items)
     {
         if (items == null) return;
-        int startIndex = _items.Count;
-        var addedItems = new List<T>();
-        foreach (var item in items)
+        if (IsNotifyOnEachAddInRange)
         {
-            _items.Add(item);
-            addedItems.Add(item);
+            foreach (var item in items)
+                Add(item);
         }
-        if (addedItems.Count > 0)
+        else
         {
+            _items.AddRange(items);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, addedItems, startIndex));
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
     }
 

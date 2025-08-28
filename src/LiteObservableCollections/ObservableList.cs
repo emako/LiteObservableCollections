@@ -12,9 +12,23 @@ namespace LiteObservableCollections;
 /// </summary>
 public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    /// <summary>
+    /// Indexer Name to notify that the this[] has changed.
+    /// </summary>
     private const string IndexerName = "Item[]";
 
+    /// <summary>
+    /// The internal list storing the collection elements.
+    /// </summary>
     private readonly List<T> _items;
+
+    /// <summary>
+    /// Indicate the AddRange notification behavior.
+    /// If true, AddRange will trigger CollectionChanged (NotifyCollectionChangedAction.Add) for each item added;
+    /// otherwise, it will only trigger once at the end with NotifyCollectionChangedAction.Reset.
+    /// This allows for more granular change notifications, enabling UI scenarios such as per-item insertion animations.
+    /// </summary>
+    public bool IsNotifyOnEachAddInRange { get; set; } = false;
 
     /// <summary>
     /// Initializes a new empty ObservableList.
@@ -64,7 +78,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         {
             T oldItem = _items[index];
             _items[index] = value;
-            OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+            OnPropertyChanged(IndexerName);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldItem, index));
         }
     }
@@ -87,7 +101,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Add(item);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1));
     }
 
@@ -98,12 +112,18 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     public void AddRange(IEnumerable<T> items)
     {
         if (items == null) return;
-        foreach (T item in items)
-            Add(item);
-
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        if (IsNotifyOnEachAddInRange)
+        {
+            foreach (T item in items)
+                Add(item);
+        }
+        else
+        {
+            _items.AddRange(items);
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(IndexerName);
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
     }
 
     /// <summary>
@@ -118,7 +138,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
 
         _items.RemoveAt(index);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
         return true;
     }
@@ -130,7 +150,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Clear();
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 

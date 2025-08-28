@@ -11,8 +11,14 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TValue>, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    /// <summary>
+    /// Indexer Name to notify that the this[] has changed.
+    /// </summary>
     private const string IndexerName = "Item[]";
 
+    /// <summary>
+    /// The internal dictionary storing the collection elements.
+    /// </summary>
     private readonly Dictionary<TKey, TValue> _dict;
 
     /// <summary>
@@ -69,7 +75,7 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
             bool exists = _dict.ContainsKey(key);
             TValue oldValue = exists ? _dict[key] : default!;
             _dict[key] = value;
-            OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+            OnPropertyChanged(IndexerName);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                 exists ? NotifyCollectionChangedAction.Replace : NotifyCollectionChangedAction.Add,
                 new KeyValuePair<TKey, TValue>(key, value),
@@ -107,7 +113,7 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     {
         _dict.Add(key, value);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value), _dict.Count - 1));
     }
 
@@ -122,7 +128,7 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
         int index = IndexOfKey(key);
         _dict.Remove(key);
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value), index));
         return true;
     }
@@ -134,7 +140,7 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     {
         _dict.Clear();
         OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName); // Notify that the this[] has changed
+        OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
