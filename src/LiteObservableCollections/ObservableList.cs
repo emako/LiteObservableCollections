@@ -23,12 +23,12 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     private readonly List<T> _items;
 
     /// <summary>
-    /// Indicate the AddRange notification behavior.
-    /// If true, AddRange will trigger CollectionChanged (NotifyCollectionChangedAction.Add) for each item added;
-    /// otherwise, it will only trigger once at the end with NotifyCollectionChangedAction.Reset.
-    /// This allows for more granular change notifications, enabling UI scenarios such as per-item insertion animations.
+    /// Indicates the AddRange or RemoveRange notification behavior.
+    /// If true, AddRange or RemoveRange will trigger CollectionChanged with `NotifyCollectionChangedAction.Add` or `NotifyCollectionChangedAction.Remove` for each item added or removed;
+    /// otherwise, it will only trigger once at the end with `NotifyCollectionChangedAction.Reset`.
+    /// This allows for more granular change notifications, enabling UI scenarios such as per-item insertion or deletion animations.
     /// </summary>
-    public bool IsNotifyOnEachAddInRange { get; set; } = false;
+    public bool IsNotifyOnEachInRange { get; set; } = false;
 
     /// <summary>
     /// Initializes a new empty ObservableList.
@@ -112,7 +112,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     public void AddRange(IEnumerable<T> items)
     {
         if (items == null) return;
-        if (IsNotifyOnEachAddInRange)
+        if (IsNotifyOnEachInRange)
         {
             foreach (T item in items)
                 Add(item);
