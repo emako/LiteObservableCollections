@@ -1,3 +1,4 @@
+[![NuGet](https://img.shields.io/nuget/v/LiteObservableCollections.svg)](https://nuget.org/packages/LiteObservableCollections) [![Actions](https://github.com/emako/LiteObservableCollections/actions/workflows/library.nuget.yml/badge.svg)](https://github.com/emako/LiteObservableCollections/actions/workflows/library.nuget.yml) 
 
 # LiteObservableCollections
 
