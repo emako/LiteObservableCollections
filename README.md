@@ -55,5 +55,5 @@ The `AddRange` method allows you to efficiently add multiple items at once, redu
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
