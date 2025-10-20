@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace LiteObservableCollections.Concurrent;
+namespace LiteObservableCollections.Concurrent.ComponentModel;
 
 /// <summary>
 /// Thread-safe container for a single object, implemented using a <see cref="ConcurrentDictionary{TKey, TValue}"/> and
