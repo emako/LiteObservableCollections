@@ -150,7 +150,7 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     /// Gets the value associated with the specified key.
     /// </summary>
     /// <returns><c>true</c> if the key was found; otherwise, <c>false</c>.</returns>
-    public bool TryGetValue(TKey key, out TValue value) => _dict.TryGetValue(key, out value);
+    public bool TryGetValue(TKey key, out TValue value) => _dict.TryGetValue(key, out value!);
 
     /// <summary>
     /// Adds the specified key/value pair to the dictionary.
