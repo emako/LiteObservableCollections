@@ -68,6 +68,8 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
             TValue old = exists ? _dict[key] : default!;
             _dict[key] = value;
             OnPropertyChanged(IndexerName);
+            OnPropertyChanged(nameof(Keys));
+            OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                 exists ? NotifyCollectionChangedAction.Replace : NotifyCollectionChangedAction.Add,
@@ -104,6 +106,8 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     {
         if (_dict.TryAdd(key, value))
         {
+            OnPropertyChanged(nameof(Keys));
+            OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
@@ -122,6 +126,8 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     {
         if (_dict.TryRemove(key, out var value))
         {
+            OnPropertyChanged(nameof(Keys));
+            OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value)));
@@ -136,6 +142,8 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     public void Clear()
     {
         _dict.Clear();
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));

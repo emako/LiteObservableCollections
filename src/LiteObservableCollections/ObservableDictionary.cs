@@ -75,6 +75,9 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
             bool exists = _dict.ContainsKey(key);
             TValue oldValue = exists ? _dict[key] : default!;
             _dict[key] = value;
+            OnPropertyChanged(nameof(Keys));
+            OnPropertyChanged(nameof(Values));
+            OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                 exists ? NotifyCollectionChangedAction.Replace : NotifyCollectionChangedAction.Add,
@@ -112,6 +115,8 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     public void Add(TKey key, TValue value)
     {
         _dict.Add(key, value);
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value), _dict.Count - 1));
@@ -127,6 +132,8 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
         if (!_dict.TryGetValue(key, out TValue? value)) return false;
         int index = IndexOfKey(key);
         _dict.Remove(key);
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value), index));
@@ -139,6 +146,8 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     public void Clear()
     {
         _dict.Clear();
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
