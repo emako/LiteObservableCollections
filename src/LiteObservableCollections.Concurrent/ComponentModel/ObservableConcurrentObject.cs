@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LiteObservableCollections.Concurrent.ComponentModel;
 
@@ -21,6 +22,7 @@ public class ObservableConcurrentObject<T> : INotifyPropertyChanged where T : cl
     /// Creates a new observable concurrent object with an initial value.
     /// </summary>
     /// <param name="value">Initial stored value; may be null.</param>
+    [SuppressMessage("Style", "IDE0290:Use primary constructor")]
     public ObservableConcurrentObject(T? value)
     {
         _inner = new ConcurrentObject<T>(value!);
