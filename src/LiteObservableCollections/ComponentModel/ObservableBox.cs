@@ -1,6 +1,4 @@
-using LiteObservableCollections.ComponentModel;
-
-namespace LiteObservableCollections;
+namespace LiteObservableCollections.ComponentModel;
 
 /// <summary>
 /// A small container that exposes a single observable property `Value`.
