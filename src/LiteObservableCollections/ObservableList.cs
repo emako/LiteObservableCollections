@@ -127,6 +127,34 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     }
 
     /// <summary>
+    /// Removes the first occurrence of each item from the specified collection.
+    /// </summary>
+    /// <param name="items">The collection whose elements should be removed from the list.</param>
+    public void RemoveRange(IEnumerable<T> items)
+    {
+        if (items == null) return;
+        if (IsNotifyOnEachInRange)
+        {
+            foreach (T item in items)
+                Remove(item);
+            return;
+        }
+
+        bool anyRemoved = false;
+        foreach (T item in items)
+        {
+            if (_items.Remove(item)) anyRemoved = true;
+        }
+
+        if (anyRemoved)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(IndexerName);
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+    }
+
+    /// <summary>
     /// Removes the first occurrence of a specific object from the list.
     /// </summary>
     /// <param name="item">The object to remove from the list.</param>
