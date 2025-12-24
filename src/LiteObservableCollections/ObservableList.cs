@@ -281,6 +281,12 @@ public interface IObservableList<T> : IList<T>, INotifyCollectionChanged, INotif
     public void AddRange(IEnumerable<T> items);
 
     /// <summary>
+    /// Removes the first occurrence of each item from the specified collection.
+    /// </summary>
+    /// <param name="items">The collection whose elements should be removed from the list.</param>
+    public void RemoveRange(IEnumerable<T> items);
+
+    /// <summary>
     /// Moves the element at the specified old index to the new index and raises collection change notifications.
     /// </summary>
     /// <param name="oldIndex">The zero-based index of the item to move.</param>

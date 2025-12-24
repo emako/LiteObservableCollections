@@ -131,6 +131,34 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     }
 
     /// <summary>
+    /// Removes the first occurrence of each item from the specified collection.
+    /// </summary>
+    /// <param name="items">The collection whose elements should be removed from the collection.</param>
+    public void RemoveRange(IEnumerable<T> items)
+    {
+        if (items == null) return;
+        if (IsNotifyOnEachInRange)
+        {
+            foreach (var item in items)
+                Remove(item);
+            return;
+        }
+
+        bool anyRemoved = false;
+        foreach (var item in items)
+        {
+            if (_items.Remove(item)) anyRemoved = true;
+        }
+
+        if (anyRemoved)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(IndexerName);
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+    }
+
+    /// <summary>
     /// Removes the first occurrence of a specific object from the collection.
     /// </summary>
     /// <param name="item">The item to remove.</param>
@@ -295,6 +323,12 @@ public interface IObservableCollection<T> : IList<T>, ICollection<T>, IEnumerabl
     /// </summary>
     /// <param name="items">The collection whose elements should be added.</param>
     public void AddRange(IEnumerable<T> items);
+
+    /// <summary>
+    /// Removes the first occurrence of each item from the specified collection.
+    /// </summary>
+    /// <param name="items">The collection whose elements should be removed.</param>
+    public void RemoveRange(IEnumerable<T> items);
 
     /// <summary>
     /// Moves the element at the specified old index to the new index and raises collection change notifications.
