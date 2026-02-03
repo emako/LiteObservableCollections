@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiteObservableCollections;
 using System.Windows;
@@ -11,6 +11,7 @@ public partial class MainWindow : Window
     {
         DataContext = new MainViewModel();
         InitializeComponent();
+        Closed += (_, _) => (DataContext as IDisposable)?.Dispose();
     }
 }
 
@@ -28,7 +29,7 @@ public partial class TestItem : ObservableObject
     public override string? ToString() => Name;
 }
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     public static ObservableList<TestItem> List { get; protected set; } = [];
 
@@ -40,13 +41,24 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableStack<TestItem> Stack { get; protected set; } = [];
 
+    /// <summary>
+    /// View over <see cref="List"/> for testing ObservableViewList (filter + sort).
+    /// </summary>
+    public ObservableViewList<TestItem> ViewList { get; }
+
+    [ObservableProperty]
+    private string _filterText = "1";
+
     private int _dictKey = 1;
     private int _suffix = 1;
 
     public MainViewModel()
     {
         List = new([new TestItem() { Name = "initial" }]);
+        ViewList = new ObservableViewList<TestItem>(List);
     }
+
+    public void Dispose() => ViewList.Dispose();
 
     [RelayCommand]
     private void AddList()
@@ -85,4 +97,22 @@ public partial class MainViewModel : ObservableObject
     {
         Stack.Push(new TestItem() { Name = $"StackItem {_suffix++}" });
     }
+
+    // ObservableViewList: filter
+    [RelayCommand]
+    private void AttachFilter()
+    {
+        string text = FilterText ?? string.Empty;
+        ViewList.AttachFilter(x => (x.Name?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    [RelayCommand]
+    private void ResetFilter() => ViewList.ResetFilter();
+
+    // ObservableViewList: sort
+    [RelayCommand]
+    private void SortView() => ViewList.AttachSort((a, b) => string.Compare(a?.Name, b?.Name, StringComparison.Ordinal));
+
+    [RelayCommand]
+    private void ResetSort() => ViewList.ResetSort();
 }
