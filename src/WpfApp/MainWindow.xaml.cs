@@ -16,11 +16,8 @@ public partial class MainWindow : Window
 
 public partial class TestItem : ObservableObject
 {
-    public string? Name
-    {
-        get => field;
-        set => SetProperty(ref field, value);
-    }
+    [ObservableProperty]
+    public partial string? Name { get; set; }
 
     [RelayCommand]
     private void RemoveList()
