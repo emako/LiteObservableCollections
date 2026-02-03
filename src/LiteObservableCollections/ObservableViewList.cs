@@ -16,6 +16,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     private readonly Func<TSource, TResult> _selector;
     private readonly List<TResult> _view = [];
     private Func<TSource, bool>? _filter;
+    private Comparison<TResult>? _sortComparison;
     private bool _disposed;
 
     /// <summary>
@@ -57,6 +58,11 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     public Func<TSource, bool>? Filter => _filter;
 
     /// <summary>
+    /// Gets the current sort comparison. Returns null if the view is in source order (no sort applied).
+    /// </summary>
+    public Comparison<TResult>? SortComparison => _sortComparison;
+
+    /// <summary>
     /// Attaches a filter predicate to the view. Items not matching the predicate are excluded.
     /// The filter operates on source elements (before projection).
     /// </summary>
@@ -91,6 +97,9 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
         foreach (TSource item in items)
             _view.Add(_selector(item));
 
+        if (_sortComparison != null)
+            _view.Sort(_sortComparison);
+
         OnPropertyChanged(nameof(Count));
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
@@ -104,31 +113,46 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
 
     /// <summary>
     /// Sorts the elements in the view using the default comparer.
+    /// The sort is persisted: <see cref="Refresh"/> will re-apply it. Use <see cref="ResetSort"/> to restore source order.
     /// </summary>
-    public void Sort()
+    public void AttachSort()
     {
+        _sortComparison = (a, b) => Comparer<TResult>.Default.Compare(a!, b!);
         _view.Sort();
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
     /// Sorts the elements in the view using the specified comparer.
+    /// The sort is persisted: <see cref="Refresh"/> will re-apply it. Use <see cref="ResetSort"/> to restore source order.
     /// </summary>
     /// <param name="comparer">The comparer to use when comparing elements.</param>
-    public void Sort(IComparer<TResult> comparer)
+    public void AttachSort(IComparer<TResult> comparer)
     {
+        _sortComparison = comparer.Compare;
         _view.Sort(comparer);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
     /// Sorts the elements in the view using the specified comparison.
+    /// The sort is persisted: <see cref="Refresh"/> will re-apply it. Use <see cref="ResetSort"/> to restore source order.
     /// </summary>
     /// <param name="comparison">The comparison to use when comparing elements.</param>
-    public void Sort(Comparison<TResult> comparison)
+    public void AttachSort(Comparison<TResult> comparison)
     {
+        _sortComparison = comparison;
         _view.Sort(comparison);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Clears the current sort and restores the view order to match the source collection (and re-applies the current filter).
+    /// </summary>
+    public void ResetSort()
+    {
+        _sortComparison = null;
+        Refresh();
     }
 
     private void OnSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
