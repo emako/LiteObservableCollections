@@ -1,6 +1,7 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Collections;
 
 namespace LiteObservableCollections;
 
@@ -259,6 +260,15 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.Insert(newIndex, item);
         OnPropertyChanged(IndexerName);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+    }
+
+    /// <summary>
+    /// Returns a read-only wrapper for the current list.
+    /// </summary>
+    /// <returns>A <see cref="ReadOnlyCollection{T}"/> that acts as a read-only wrapper around the current list.</returns>
+    public ReadOnlyCollection<T> AsReadOnly()
+    {
+        return _items.AsReadOnly();
     }
 
     /// <summary>
