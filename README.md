@@ -9,6 +9,7 @@ Lite version of ObservableCollections with fewer features but better performance
 - Lightweight observable list and collection implementations.
 - Implements `INotifyCollectionChanged` and `INotifyPropertyChanged`.
 - Supports batch addition via `AddRange`.
+- **ObservableViewList**: reactive view over `ObservableList<T>` with filter, sort, and optional projection; filter/sort are persisted across source updates.
 
 ## Usage
 
@@ -46,6 +47,46 @@ Both types support moving items:
 list.Move(0, 2); // Moves the first item to index 2
 collection.Move(1, 0); // Moves the second item to the first position
 ```
+
+### ObservableViewList\<T\>
+
+A reactive view over an `ObservableList<T>` that supports filtering and sorting. Changes in the source list are reflected in the view. Filter and sort are persisted: `Refresh()` (e.g. when the source changes) re-applies them.
+
+**View without projection** (same element type):
+
+```csharp
+var source = new ObservableList<string> { "Banana", "Apple", "Cherry" };
+using var view = new ObservableViewList<string>(source);
+
+// Filter: only items containing "a"
+view.AttachFilter(s => s.Contains('a'));
+// view: Banana, Apple
+
+// Reset filter
+view.ResetFilter();
+
+// Sort by default comparer (or AttachSort(comparison))
+view.AttachSort();
+// view: Apple, Banana, Cherry
+
+// Restore source order
+view.ResetSort();
+```
+
+**View with projection** (`ObservableViewList<TSource, TResult>`):
+
+```csharp
+var source = new ObservableList<int> { 1, 2, 3 };
+using var view = new ObservableViewList<int, string>(source, x => $"Item {x}");
+// view: "Item 1", "Item 2", "Item 3"
+
+view.AttachFilter(x => x >= 2);
+// view: "Item 2", "Item 3"
+```
+
+- `AttachFilter(predicate)` / `ResetFilter()` — filter operates on source elements (before projection).
+- `AttachSort()` / `AttachSort(comparer)` / `AttachSort(comparison)` / `ResetSort()` — sort operates on view elements. Sort is re-applied on each `Refresh()`.
+- `ObservableViewList` implements `IDisposable`; dispose to unsubscribe from the source.
 
 ## Why AddRange?
 
