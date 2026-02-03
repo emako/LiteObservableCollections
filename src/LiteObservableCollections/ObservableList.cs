@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -270,6 +270,76 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         return _items.AsReadOnly();
     }
+
+    /// <summary>
+    /// Reverses the order of the elements in the list.
+    /// </summary>
+    public void Reverse()
+    {
+        _items.Reverse();
+        OnPropertyChanged(IndexerName);
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Sorts the elements in the list using the default comparer.
+    /// </summary>
+    public void Sort()
+    {
+        _items.Sort();
+        OnPropertyChanged(IndexerName);
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Sorts the elements in the list using the specified comparer.
+    /// </summary>
+    /// <param name="comparer">The comparer to use when comparing elements.</param>
+    public void Sort(IComparer<T> comparer)
+    {
+        _items.Sort(comparer);
+        OnPropertyChanged(IndexerName);
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Sorts the elements in the list using the specified comparison.
+    /// </summary>
+    /// <param name="comparison">The comparison to use when comparing elements.</param>
+    public void Sort(Comparison<T> comparison)
+    {
+        _items.Sort(comparison);
+        OnPropertyChanged(IndexerName);
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Searches the entire sorted list for an element using the default comparer and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="item">The object to locate.</param>
+    /// <returns>The zero-based index of item in the sorted list, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of <see cref="Count"/>.</returns>
+    public int BinarySearch(T item)
+        => _items.BinarySearch(item);
+
+    /// <summary>
+    /// Searches the entire sorted list for an element using the specified comparer and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="item">The object to locate.</param>
+    /// <param name="comparer">The <see cref="IComparer{T}"/> implementation to use when comparing elements, or null to use the default comparer.</param>
+    /// <returns>The zero-based index of item in the sorted list, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of <see cref="Count"/>.</returns>
+    public int BinarySearch(T item, IComparer<T>? comparer)
+        => _items.BinarySearch(item, comparer);
+
+    /// <summary>
+    /// Searches a range of elements in the sorted list for an element using the specified comparer and returns the zero-based index of the element.
+    /// </summary>
+    /// <param name="index">The zero-based starting index of the range to search.</param>
+    /// <param name="count">The length of the range to search.</param>
+    /// <param name="item">The object to locate.</param>
+    /// <param name="comparer">The <see cref="IComparer{T}"/> implementation to use when comparing elements, or null to use the default comparer.</param>
+    /// <returns>The zero-based index of item in the sorted list, if item is found; otherwise, a negative number that is the bitwise complement of the index of the next element that is larger than item or, if there is no larger element, the bitwise complement of (<paramref name="index"/> + <paramref name="count"/>).</returns>
+    public int BinarySearch(int index, int count, T item, IComparer<T>? comparer)
+        => _items.BinarySearch(index, count, item, comparer);
 
     /// <summary>
     /// Raises the <see cref="PropertyChanged"/> event.
