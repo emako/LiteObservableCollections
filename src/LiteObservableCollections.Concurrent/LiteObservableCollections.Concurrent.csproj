@@ -20,7 +20,6 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
         <DebugType>portable</DebugType>
         <DebugSymbols>true</DebugSymbols>
-        <AllowedOutputExtensionsInPackageBuildOutputFolder>.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
         <IncludeSymbols>true</IncludeSymbols>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
