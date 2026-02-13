@@ -1,8 +1,16 @@
-Set-Location $PSScriptRoot
+﻿Set-Location $PSScriptRoot
+
+Write-Host @"
+███╗   ██╗██╗   ██╗ ██████╗ ███████╗████████╗
+████╗  ██║██║   ██║██╔════╝ ██╔════╝╚══██╔══╝
+██╔██╗ ██║██║   ██║██║  ███╗█████╗     ██║   
+██║╚██╗██║██║   ██║██║   ██║██╔══╝     ██║   
+██║ ╚████║╚██████╔╝╚██████╔╝███████╗   ██║   
+╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   
+"@
 
 $projects = @(
-    "..\src\LiteObservableCollections",
-    "..\src\LiteObservableCollections.Concurrent"
+    "..\src\LiteObservableCollections"
 )
 
 foreach ($proj in $projects) {
