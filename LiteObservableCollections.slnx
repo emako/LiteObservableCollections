@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="src/LiteObservableCollections.Concurrent/LiteObservableCollections.Concurrent.csproj" />
   <Project Path="src/LiteObservableCollections/LiteObservableCollections.csproj" />
   <Project Path="src/WpfApp/WpfApp.csproj" />
 </Solution>
