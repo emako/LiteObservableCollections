@@ -59,6 +59,9 @@ public sealed class SynchronizationContextCollectionEventDispatcher(Synchronizat
     }
 }
 
+/// <summary>
+/// Provides extension methods for <see cref="SynchronizationContextCollectionEventDispatcher"/>.
+/// </summary>
 public static class SynchronizationContextCollectionEventDispatcherExtension
 {
     /// <summary>
