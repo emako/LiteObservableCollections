@@ -60,19 +60,19 @@ public sealed class SynchronizationContextCollectionEventDispatcher(Synchronizat
 }
 
 /// <summary>
-/// Provides extension methods for <see cref="SynchronizationContextCollectionEventDispatcher"/>.
+/// Provides extension methods for <see cref="ICollectionEventDispatcher"/>.
 /// </summary>
-public static class SynchronizationContextCollectionEventDispatcherExtension
+public static class ICollectionEventDispatcherExtension
 {
     /// <summary>
     /// Capture in synchronization context of current thread.
     /// The host should be called once on the main/UI thread (e.g. at app startup), after which the library will use dispatch.
     /// </summary>
     /// <seealso cref="SynchronizationContextCollectionEventDispatcher.Current"/> and <seealso cref="SynchronizationContextCollectionEventDispatcher.current"/>.
-    public static void CaptureFromCurrentContext(this SynchronizationContextCollectionEventDispatcher self)
+    public static void CaptureFromCurrentContext(this ICollectionEventDispatcher self)
     {
         // Must called from the Current property:
-        // e.g. `SynchronizationContextCollectionEventDispatcher.Current.CaptureFromCurrentContext`.
+        // e.g. `SynchronizationContextCollectionEventDispatcher.Current!.CaptureFromCurrentContext`.
         // No-op since context is captured at construction time.
         _ = self;
     }
