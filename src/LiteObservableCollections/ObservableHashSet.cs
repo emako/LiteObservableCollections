@@ -12,6 +12,11 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     private readonly HashSet<T> _set;
 
     /// <summary>
+    /// Gets or sets the optional event dispatcher. When set, CollectionChanged and PropertyChanged are raised on the dispatcher's context (e.g. UI thread).
+    /// </summary>
+    public ICollectionEventDispatcher? EventDispatcher { get; set; }
+
+    /// <summary>
     /// Initializes a new empty ObservableHashSet.
     /// </summary>
     public ObservableHashSet()
@@ -68,7 +73,7 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
         if (added)
         {
             OnPropertyChanged(nameof(Count));
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item));
         }
         return added;
     }
@@ -90,7 +95,7 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
         if (removed)
         {
             OnPropertyChanged(nameof(Count));
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item));
         }
         return removed;
     }
@@ -102,7 +107,7 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     {
         _set.Clear();
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -202,7 +207,35 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     /// </summary>
     /// <param name="propertyName">The name of the property that changed.</param>
     private void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    /// <summary>
+    /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (CollectionChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            return;
+        }
+        CollectionChanged.Invoke(this, e);
+    }
+
+    /// <summary>
+    /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (PropertyChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            return;
+        }
+        PropertyChanged.Invoke(this, e);
+    }
 }
 
 /// <summary>

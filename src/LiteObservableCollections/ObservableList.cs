@@ -24,6 +24,11 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     private readonly List<T> _items;
 
     /// <summary>
+    /// Gets or sets the optional event dispatcher. When set, CollectionChanged and PropertyChanged are raised on the dispatcher's context (e.g. UI thread).
+    /// </summary>
+    public ICollectionEventDispatcher? EventDispatcher { get; set; }
+
+    /// <summary>
     /// Indicates the AddRange or RemoveRange notification behavior.
     /// If true, AddRange or RemoveRange will trigger CollectionChanged with `NotifyCollectionChangedAction.Add` or `NotifyCollectionChangedAction.Remove` for each item added or removed;
     /// otherwise, it will only trigger once at the end with `NotifyCollectionChangedAction.Reset`.
@@ -80,7 +85,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
             T oldItem = _items[index];
             _items[index] = value;
             OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldItem, index));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldItem, index));
         }
     }
 
@@ -103,7 +108,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.Add(item);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1));
     }
 
     /// <summary>
@@ -123,7 +128,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
             _items.AddRange(items);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
     }
 
@@ -151,7 +156,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         {
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
     }
 
@@ -168,7 +173,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.RemoveAt(index);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
         return true;
     }
 
@@ -180,7 +185,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.Clear();
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -226,7 +231,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.Insert(index, item);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
     }
 
     /// <summary>
@@ -239,7 +244,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.RemoveAt(index);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, index));
     }
 
     /// <summary>
@@ -259,7 +264,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
         _items.RemoveAt(oldIndex);
         _items.Insert(newIndex, item);
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
     }
 
     /// <summary>
@@ -278,7 +283,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Reverse();
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -288,7 +293,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Sort();
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -299,7 +304,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Sort(comparer);
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -310,7 +315,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     {
         _items.Sort(comparison);
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -346,7 +351,35 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     /// </summary>
     /// <param name="propertyName">The name of the property that changed.</param>
     private void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    /// <summary>
+    /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (CollectionChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            return;
+        }
+        CollectionChanged.Invoke(this, e);
+    }
+
+    /// <summary>
+    /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (PropertyChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            return;
+        }
+        PropertyChanged.Invoke(this, e);
+    }
 }
 
 /// <summary>

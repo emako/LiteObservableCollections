@@ -12,6 +12,11 @@ public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged,
     private readonly Stack<T> _stack;
 
     /// <summary>
+    /// Gets or sets the optional event dispatcher. When set, CollectionChanged and PropertyChanged are raised on the dispatcher's context (e.g. UI thread).
+    /// </summary>
+    public ICollectionEventDispatcher? EventDispatcher { get; set; }
+
+    /// <summary>
     /// Initializes a new empty ObservableStack.
     /// </summary>
     public ObservableStack()
@@ -103,7 +108,7 @@ public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged,
     {
         _stack.Push(item);
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _stack.Count - 1));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _stack.Count - 1));
     }
 
     /// <summary>
@@ -114,7 +119,7 @@ public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged,
     {
         T item = _stack.Pop();
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, 0));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, 0));
         return item;
     }
 
@@ -131,7 +136,7 @@ public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged,
     {
         _stack.Clear();
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -151,7 +156,35 @@ public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged,
     /// </summary>
     /// <param name="propertyName">The name of the property that changed.</param>
     private void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    /// <summary>
+    /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (CollectionChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            return;
+        }
+        CollectionChanged.Invoke(this, e);
+    }
+
+    /// <summary>
+    /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (PropertyChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            return;
+        }
+        PropertyChanged.Invoke(this, e);
+    }
 }
 
 /// <summary>

@@ -20,6 +20,11 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     private bool _disposed;
 
     /// <summary>
+    /// Gets or sets the optional event dispatcher. When set, CollectionChanged and PropertyChanged are raised on the dispatcher's context (e.g. UI thread).
+    /// </summary>
+    public ICollectionEventDispatcher? EventDispatcher { get; set; }
+
+    /// <summary>
     /// Initializes a new view over the specified source collection with a projection selector.
     /// </summary>
     /// <param name="source">The source collection to create a view over.</param>
@@ -101,7 +106,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
             _view.Sort(_sortComparison);
 
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -119,7 +124,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     {
         _sortComparison = (a, b) => Comparer<TResult>.Default.Compare(a!, b!);
         _view.Sort();
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -131,7 +136,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     {
         _sortComparison = comparer.Compare;
         _view.Sort(comparer);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -143,7 +148,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     {
         _sortComparison = comparison;
         _view.Sort(comparison);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -162,7 +167,35 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     }
 
     private void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    /// <summary>
+    /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (CollectionChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            return;
+        }
+        CollectionChanged.Invoke(this, e);
+    }
+
+    /// <summary>
+    /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (PropertyChanged == null) return;
+        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        {
+            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            return;
+        }
+        PropertyChanged.Invoke(this, e);
+    }
 
     /// <summary>
     /// Releases resources and unsubscribes from the source collection.
