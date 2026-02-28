@@ -38,6 +38,17 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     }
 
     /// <summary>
+    /// Initializes a new view over the specified source collection with a projection selector and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="source">The source collection to create a view over.</param>
+    /// <param name="selector">The projection function to transform source elements.</param>
+    public ObservableViewList(SynchronizationContext? context, ObservableList<TSource> source, Func<TSource, TResult> selector) : this(source, selector)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
     /// Occurs when the view collection changes.
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -218,4 +229,15 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
 /// Initializes a new view over the specified source collection.
 /// </remarks>
 /// <param name="source">The source collection to create a view over.</param>
-public class ObservableViewList<T>(ObservableList<T> source) : ObservableViewList<T, T>(source, x => x);
+public class ObservableViewList<T>(ObservableList<T> source) : ObservableViewList<T, T>(source, x => x)
+{
+    /// <summary>
+    /// Initializes a new view over the specified source collection and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="source">The source collection to create a view over.</param>
+    public ObservableViewList(SynchronizationContext? context, ObservableList<T> source) : this(source)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+}

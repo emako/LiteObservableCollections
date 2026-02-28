@@ -47,7 +47,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public ObservableViewList<TestItem> ViewList { get; }
 
     [ObservableProperty]
-    private string _filterText = "1";
+    public partial string FilterText { get; set; } = "1";
 
     private int _dictKey = 1;
     private int _suffix = 1;

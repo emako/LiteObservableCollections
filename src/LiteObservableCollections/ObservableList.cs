@@ -63,6 +63,35 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     }
 
     /// <summary>
+    /// Initializes a new empty ObservableList and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    public ObservableList(SynchronizationContext? context) : this()
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableList with the specified list and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="list">The list to initialize from.</param>
+    public ObservableList(SynchronizationContext? context, List<T> list) : this(list)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableList with the specified collection and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableList(SynchronizationContext? context, IEnumerable<T> collection) : this(collection)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
     /// Occurs when the collection changes.
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;

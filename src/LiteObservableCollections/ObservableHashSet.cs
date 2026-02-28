@@ -43,6 +43,35 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     }
 
     /// <summary>
+    /// Initializes a new empty ObservableHashSet and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    public ObservableHashSet(SynchronizationContext? context) : this()
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableHashSet with the specified set and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="set">The set to initialize from.</param>
+    public ObservableHashSet(SynchronizationContext? context, HashSet<T> set) : this(set)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableHashSet with the specified collection and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableHashSet(SynchronizationContext? context, IEnumerable<T> collection) : this(collection)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
     /// Occurs when the hash set changes.
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;

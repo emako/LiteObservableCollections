@@ -43,6 +43,35 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
     }
 
     /// <summary>
+    /// Initializes a new empty ObservableQueue and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    public ObservableQueue(SynchronizationContext? context) : this()
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableQueue with the specified queue and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="queue">The queue to initialize from.</param>
+    public ObservableQueue(SynchronizationContext? context, Queue<T> queue) : this(queue)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
+    /// Initializes a new ObservableQueue with the specified collection and marshals change notifications to the specified synchronization context (e.g. UI thread).
+    /// </summary>
+    /// <param name="context">The context to raise CollectionChanged and PropertyChanged on; when null, notifications run on the current thread.</param>
+    /// <param name="collection">The collection to initialize from.</param>
+    public ObservableQueue(SynchronizationContext? context, IEnumerable<T> collection) : this(collection)
+    {
+        if (context != null) EventDispatcher = new SynchronizationContextCollectionEventDispatcher(context);
+    }
+
+    /// <summary>
     /// Occurs when the queue changes.
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
