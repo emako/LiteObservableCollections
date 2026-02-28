@@ -57,6 +57,15 @@ public sealed class SynchronizationContextCollectionEventDispatcher(Synchronizat
         Action ev = (Action)state!;
         ev.Invoke();
     }
+
+    /// <inheritdoc />
+    /// <seealso cref="Current"/> and <seealso cref="current"/>.
+    public void CaptureFromCurrentContext()
+    {
+        // Must called from the Current property:
+        // e.g. `SynchronizationContextCollectionEventDispatcher.Current.CaptureFromCurrentContext`.
+        // No-op since context is captured at construction time.
+    }
 }
 
 /// <summary>
@@ -85,4 +94,10 @@ public interface ICollectionEventDispatcher
     /// </summary>
     /// <param name="action">The action to run on the target context.</param>
     public void Send(Action action);
+
+    /// <summary>
+    /// Capture in synchronization context of current thread.
+    /// The host should be called once on the main/UI thread (e.g. at app startup), after which the library will use dispatch.
+    /// </summary>
+    public void CaptureFromCurrentContext();
 }
