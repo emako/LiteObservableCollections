@@ -113,11 +113,21 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
             OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(
-                exists ? NotifyCollectionChangedAction.Replace : NotifyCollectionChangedAction.Add,
-                new KeyValuePair<TKey, TValue>(key, value),
-                exists ? new KeyValuePair<TKey, TValue>(key, oldValue) : null,
-                exists ? IndexOfKey(key) : -1));
+
+            if (exists)
+            {
+                RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Replace,
+                    new KeyValuePair<TKey, TValue>(key, value),
+                    new KeyValuePair<TKey, TValue>(key, oldValue),
+                    IndexOfKey(key)));
+            }
+            else
+            {
+                RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Add, 
+                    new KeyValuePair<TKey, TValue>(key, value)));
+            }
         }
     }
 

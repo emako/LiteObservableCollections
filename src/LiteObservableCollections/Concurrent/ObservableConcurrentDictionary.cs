@@ -65,16 +65,25 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
         {
             // Note: ContainsKey followed by indexer is not atomic. This determines whether to raise Add or Replace.
             bool exists = _dict.ContainsKey(key);
-            TValue old = exists ? _dict[key] : default!;
+            TValue oldValue = exists ? _dict[key] : default!;
             _dict[key] = value;
             OnPropertyChanged(IndexerName);
             OnPropertyChanged(nameof(Keys));
             OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                exists ? NotifyCollectionChangedAction.Replace : NotifyCollectionChangedAction.Add,
-                new KeyValuePair<TKey, TValue>(key, value),
-                exists ? new KeyValuePair<TKey, TValue>(key, old) : null));
+            if (exists)
+            {
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Replace,
+                    new KeyValuePair<TKey, TValue>(key, value),
+                    new KeyValuePair<TKey, TValue>(key, oldValue)));
+            }
+            else
+            {
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Add,
+                    new KeyValuePair<TKey, TValue>(key, value)));
+            }
         }
     }
 
