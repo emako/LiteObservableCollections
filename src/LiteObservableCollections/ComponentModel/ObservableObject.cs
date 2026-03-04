@@ -11,6 +11,12 @@ namespace LiteObservableCollections.ComponentModel;
 public abstract class ObservableObject : INotifyPropertyChanged, INotifyPropertyChanging
 {
     /// <summary>
+    /// Gets or sets whether change notifications (PropertyChanged and PropertyChanging) are raised.
+    /// When false, property changes do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Raised after a property value has changed.
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -26,7 +32,8 @@ public abstract class ObservableObject : INotifyPropertyChanged, INotifyProperty
     /// <param name="propertyName">The name of the property that changed. If null, caller member name is used.</param>
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
+        PropertyChanged.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     /// <summary>
@@ -35,7 +42,8 @@ public abstract class ObservableObject : INotifyPropertyChanged, INotifyProperty
     /// <param name="propertyName">The name of the property that is changing. If null, caller member name is used.</param>
     protected virtual void OnPropertyChanging([CallerMemberName] string? propertyName = null)
     {
-        PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
+        if (!IsNotifyEnabled || PropertyChanging == null) return;
+        PropertyChanging.Invoke(this, new PropertyChangingEventArgs(propertyName));
     }
 
     /// <summary>
