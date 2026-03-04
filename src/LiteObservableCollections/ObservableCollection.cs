@@ -217,6 +217,21 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     }
 
     /// <summary>
+    /// Resets the collection to the specified items: clears the collection, adds all items from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the collection is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+        _items.Clear();
+        if (items != null)
+            _items.AddRange(items);
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(IndexerName);
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Determines whether the collection contains a specific value.
     /// </summary>
     /// <param name="item">The item to locate in the collection.</param>
@@ -391,6 +406,12 @@ public interface IObservableCollection<T> : IList<T>, ICollection<T>, IEnumerabl
     /// </summary>
     /// <param name="items">The collection whose elements should be added.</param>
     public void AddRange(IEnumerable<T> items);
+
+    /// <summary>
+    /// Resets the collection to the specified items (clear then add all), raising a single CollectionChanged Reset.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the collection is cleared.</param>
+    public void Reset(IEnumerable<T>? items);
 
     /// <summary>
     /// Removes the first occurrence of each item from the specified collection.

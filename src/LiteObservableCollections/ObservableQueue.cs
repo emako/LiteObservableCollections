@@ -175,6 +175,23 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
     }
 
     /// <summary>
+    /// Resets the queue to the specified items: clears the queue, enqueues all items from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the queue is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+        _queue.Clear();
+        if (items != null)
+        {
+            foreach (var x in items)
+                _queue.Enqueue(x);
+        }
+        OnPropertyChanged(nameof(Count));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Returns an enumerator that iterates through the queue.
     /// </summary>
     /// <returns>An enumerator for the queue.</returns>

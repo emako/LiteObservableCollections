@@ -147,6 +147,26 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     }
 
     /// <summary>
+    /// Resets the dictionary to the specified key/value pairs: clears the dictionary, adds all pairs from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The key/value pairs to set. If null, the dictionary is cleared.</param>
+    public void Reset(IEnumerable<KeyValuePair<TKey, TValue>>? items)
+    {
+        _dict.Clear();
+        if (items != null)
+        {
+            foreach (var kv in items)
+                _dict.TryAdd(kv.Key, kv.Value);
+        }
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(IndexerName);
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Determines whether the dictionary contains the specified key.
     /// </summary>
     public bool ContainsKey(TKey key) => _dict.ContainsKey(key);

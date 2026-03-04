@@ -123,7 +123,32 @@ public class ObservableConcurrentQueue<T> : IEnumerable<T>, IReadOnlyCollection<
     /// </summary>
     public void Clear()
     {
+#if NETSTANDARD2_1 || NET6_0_OR_GREATER
+        _queue.Clear();
+#else
         while (_queue.TryDequeue(out _)) { }
+#endif
+        OnPropertyChanged(nameof(Count));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Resets the queue to the specified items: clears the queue, enqueues all items from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the queue is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+#if NETSTANDARD2_1 || NET6_0_OR_GREATER
+        _queue.Clear();
+#else
+        while (_queue.TryDequeue(out _)) { }
+#endif
+        if (items != null)
+        {
+            foreach (var x in items)
+                _queue.Enqueue(x);
+        }
         OnPropertyChanged(nameof(Count));
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }

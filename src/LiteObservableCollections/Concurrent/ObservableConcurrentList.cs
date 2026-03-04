@@ -145,6 +145,24 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
     }
 
     /// <summary>
+    /// Resets the list to the specified items: clears the list, adds all items from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the list is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+        lock (_sync)
+        {
+            _items.Clear();
+            if (items != null)
+                _items.AddRange(items);
+        }
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(IndexerName);
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Determines whether the list contains a specific value.
     /// </summary>
     public bool Contains(T item) { lock (_sync) return _items.Contains(item); }

@@ -175,6 +175,23 @@ public class ObservableStack<T> : IObservableStack<T>, INotifyCollectionChanged,
     }
 
     /// <summary>
+    /// Resets the stack to the specified items: clears the stack, pushes all items from the given enumeration (first item ends up at bottom),
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the stack is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+        _stack.Clear();
+        if (items != null)
+        {
+            foreach (var x in items)
+                _stack.Push(x);
+        }
+        OnPropertyChanged(nameof(Count));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Returns an enumerator that iterates through the stack.
     /// </summary>
     /// <returns>An enumerator for the stack.</returns>

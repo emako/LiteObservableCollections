@@ -224,6 +224,21 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     }
 
     /// <summary>
+    /// Resets the list to the specified items: clears the list, adds all items from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the list is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+        _items.Clear();
+        if (items != null)
+            _items.AddRange(items);
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(IndexerName);
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Determines whether the list contains a specific value.
     /// </summary>
     /// <param name="item">The object to locate in the list.</param>
@@ -427,6 +442,12 @@ public interface IObservableList<T> : IList<T>, INotifyCollectionChanged, INotif
     /// </summary>
     /// <param name="items">The collection whose elements should be added to the end of the list.</param>
     public void AddRange(IEnumerable<T> items);
+
+    /// <summary>
+    /// Resets the list to the specified items (clear then add all), raising a single CollectionChanged Reset.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the list is cleared.</param>
+    public void Reset(IEnumerable<T>? items);
 
     /// <summary>
     /// Removes the first occurrence of each item from the specified collection.

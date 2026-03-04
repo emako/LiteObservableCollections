@@ -146,6 +146,23 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     }
 
     /// <summary>
+    /// Resets the hash set to the specified items: clears the set, adds all items from the given enumeration,
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the set is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+        _set.Clear();
+        if (items != null)
+        {
+            foreach (var x in items)
+                _set.Add(x);
+        }
+        OnPropertyChanged(nameof(Count));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Determines whether the hash set contains the specified element.
     /// </summary>
     /// <param name="item">The element to locate in the hash set.</param>

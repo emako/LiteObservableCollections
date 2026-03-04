@@ -123,7 +123,32 @@ public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<
     /// </summary>
     public void Clear()
     {
+#if NETSTANDARD2_1 || NET6_0_OR_GREATER
+        _stack.Clear();
+#else
         while (_stack.TryPop(out _)) { }
+#endif
+        OnPropertyChanged(nameof(Count));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Resets the stack to the specified items: clears the stack, pushes all items from the given enumeration (first item ends up at bottom),
+    /// and raises a single <see cref="CollectionChanged"/> with <see cref="NotifyCollectionChangedAction.Reset"/>.
+    /// </summary>
+    /// <param name="items">The items to set. If null, the stack is cleared.</param>
+    public void Reset(IEnumerable<T>? items)
+    {
+#if NETSTANDARD2_1 || NET6_0_OR_GREATER
+        _stack.Clear();
+#else
+        while (_stack.TryPop(out _)) { }
+#endif
+        if (items != null)
+        {
+            foreach (var x in items)
+                _stack.Push(x);
+        }
         OnPropertyChanged(nameof(Count));
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
