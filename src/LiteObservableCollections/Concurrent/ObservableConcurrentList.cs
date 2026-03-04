@@ -28,6 +28,12 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
     public bool IsNotifyOnEachInRange { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, modifications do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Occurs when the list changes.
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -55,7 +61,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
                 _items[index] = value;
             }
             OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, old, index));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, old, index));
         }
     }
 
@@ -85,7 +91,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
         }
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
     }
 
     /// <summary>
@@ -106,7 +112,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
         }
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -123,7 +129,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
         }
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
         return true;
     }
 
@@ -135,7 +141,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
         lock (_sync) { _items.Clear(); }
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -173,7 +179,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
         lock (_sync) { _items.Insert(index, item); }
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
     }
 
     /// <summary>
@@ -189,7 +195,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
         }
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, old, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, old, index));
     }
 
     /// <summary>
@@ -208,7 +214,7 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
             _items.Insert(newIndex, item);
         }
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
     }
 
     /// <summary>
@@ -227,8 +233,18 @@ public class ObservableConcurrentList<T> : IList<T>, ICollection, INotifyCollect
     bool ICollection.IsSynchronized => false;
     int ICollection.Count => Count;
 
-    /// <summary>
-    /// Raises the <see cref="PropertyChanged"/> event for the specified property name.
-    /// </summary>
-    private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    private void OnPropertyChanged(string propertyName) =>
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
+        PropertyChanged.Invoke(this, e);
+    }
+
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
+        CollectionChanged.Invoke(this, e);
+    }
 }

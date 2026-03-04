@@ -44,6 +44,12 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     }
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, modifications do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Occurs when the dictionary content changes (items added, removed, replaced or the collection reset).
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -71,19 +77,9 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
             OnPropertyChanged(nameof(Keys));
             OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
-            if (exists)
-            {
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Replace,
-                    new KeyValuePair<TKey, TValue>(key, value),
-                    new KeyValuePair<TKey, TValue>(key, oldValue)));
-            }
-            else
-            {
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Add,
-                    new KeyValuePair<TKey, TValue>(key, value)));
-            }
+            RaiseCollectionChanged(exists
+                ? new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, new KeyValuePair<TKey, TValue>(key, value), new KeyValuePair<TKey, TValue>(key, oldValue))
+                : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
         }
     }
 
@@ -113,18 +109,13 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     /// <exception cref="ArgumentException">Thrown when an element with the same key already exists.</exception>
     public void Add(TKey key, TValue value)
     {
-        if (_dict.TryAdd(key, value))
-        {
-            OnPropertyChanged(nameof(Keys));
-            OnPropertyChanged(nameof(Values));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
-        }
-        else
-        {
+        if (!_dict.TryAdd(key, value))
             throw new ArgumentException("An item with the same key has already been added.", nameof(key));
-        }
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(IndexerName);
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
     }
 
     /// <summary>
@@ -133,16 +124,13 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
     /// <returns><c>true</c> if the element is successfully removed; otherwise, <c>false</c>.</returns>
     public bool Remove(TKey key)
     {
-        if (_dict.TryRemove(key, out var value))
-        {
-            OnPropertyChanged(nameof(Keys));
-            OnPropertyChanged(nameof(Values));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(IndexerName);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value)));
-            return true;
-        }
-        return false;
+        if (!_dict.TryRemove(key, out var value)) return false;
+        OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(Values));
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(IndexerName);
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value)));
+        return true;
     }
 
     /// <summary>
@@ -155,7 +143,7 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
         OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -199,9 +187,18 @@ public class ObservableConcurrentDictionary<TKey, TValue> : IDictionary<TKey, TV
 
     IEnumerator IEnumerable.GetEnumerator() => _dict.GetEnumerator();
 
-    /// <summary>
-    /// Raises the <see cref="PropertyChanged"/> event for the specified property name.
-    /// </summary>
-    /// <param name="propertyName">Name of the property that changed.</param>
-    private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    private void OnPropertyChanged(string propertyName) =>
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
+        PropertyChanged.Invoke(this, e);
+    }
+
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
+        CollectionChanged.Invoke(this, e);
+    }
 }

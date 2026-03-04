@@ -25,6 +25,12 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     public ICollectionEventDispatcher? EventDispatcher { get; set; }
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, view updates do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Initializes a new view over the specified source collection with a projection selector.
     /// </summary>
     /// <param name="source">The source collection to create a view over.</param>
@@ -185,7 +191,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     /// </summary>
     private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (CollectionChanged == null) return;
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
@@ -199,7 +205,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     /// </summary>
     private void RaisePropertyChanged(PropertyChangedEventArgs e)
     {
-        if (PropertyChanged == null) return;
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));

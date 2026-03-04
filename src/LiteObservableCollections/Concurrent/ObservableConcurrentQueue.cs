@@ -38,6 +38,12 @@ public class ObservableConcurrentQueue<T> : IEnumerable<T>, IReadOnlyCollection<
     }
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, modifications do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Occurs when the queue content changes (items enqueued, dequeued or the collection reset).
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -84,7 +90,7 @@ public class ObservableConcurrentQueue<T> : IEnumerable<T>, IReadOnlyCollection<
     {
         _queue.Enqueue(item);
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item));
     }
 
     /// <summary>
@@ -96,7 +102,7 @@ public class ObservableConcurrentQueue<T> : IEnumerable<T>, IReadOnlyCollection<
         if (_queue.TryDequeue(out var item))
         {
             OnPropertyChanged(nameof(Count));
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item));
+            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item));
             return item;
         }
         throw new InvalidOperationException("Queue empty");
@@ -119,7 +125,7 @@ public class ObservableConcurrentQueue<T> : IEnumerable<T>, IReadOnlyCollection<
     {
         while (_queue.TryDequeue(out _)) { }
         OnPropertyChanged(nameof(Count));
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
     /// <summary>
@@ -130,8 +136,18 @@ public class ObservableConcurrentQueue<T> : IEnumerable<T>, IReadOnlyCollection<
 
     IEnumerator IEnumerable.GetEnumerator() => _queue.GetEnumerator();
 
-    /// <summary>
-    /// Raises the <see cref="PropertyChanged"/> event for the specified property name.
-    /// </summary>
-    private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    private void OnPropertyChanged(string propertyName) =>
+        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+
+    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
+        PropertyChanged.Invoke(this, e);
+    }
+
+    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
+        CollectionChanged.Invoke(this, e);
+    }
 }

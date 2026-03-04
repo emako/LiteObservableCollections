@@ -27,6 +27,12 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     public ICollectionEventDispatcher? EventDispatcher { get; set; }
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, modifications to the dictionary do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Initializes a new empty ObservableDictionary.
     /// </summary>
     public ObservableDictionary()
@@ -113,21 +119,9 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
             OnPropertyChanged(nameof(Values));
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
-
-            if (exists)
-            {
-                RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Replace,
-                    new KeyValuePair<TKey, TValue>(key, value),
-                    new KeyValuePair<TKey, TValue>(key, oldValue),
-                    IndexOfKey(key)));
-            }
-            else
-            {
-                RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Add, 
-                    new KeyValuePair<TKey, TValue>(key, value)));
-            }
+            RaiseCollectionChanged(exists
+                ? new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, new KeyValuePair<TKey, TValue>(key, value), new KeyValuePair<TKey, TValue>(key, oldValue), IndexOfKey(key))
+                : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
         }
     }
 
@@ -279,7 +273,7 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     /// </summary>
     private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (CollectionChanged == null) return;
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
@@ -293,7 +287,7 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     /// </summary>
     private void RaisePropertyChanged(PropertyChangedEventArgs e)
     {
-        if (PropertyChanged == null) return;
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));

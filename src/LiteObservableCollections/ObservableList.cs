@@ -37,6 +37,12 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     public bool IsNotifyOnEachInRange { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, modifications to the list do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Initializes a new empty ObservableList.
     /// </summary>
     public ObservableList()
@@ -387,7 +393,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     /// </summary>
     private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (CollectionChanged == null) return;
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
@@ -401,7 +407,7 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     /// </summary>
     private void RaisePropertyChanged(PropertyChangedEventArgs e)
     {
-        if (PropertyChanged == null) return;
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));

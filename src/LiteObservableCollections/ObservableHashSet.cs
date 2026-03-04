@@ -17,6 +17,12 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     public ICollectionEventDispatcher? EventDispatcher { get; set; }
 
     /// <summary>
+    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
+    /// When false, modifications to the hash set do not raise any events. Default is true.
+    /// </summary>
+    public bool IsNotifyEnabled { get; set; } = true;
+
+    /// <summary>
     /// Initializes a new empty ObservableHashSet.
     /// </summary>
     public ObservableHashSet()
@@ -243,7 +249,7 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     /// </summary>
     private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (CollectionChanged == null) return;
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
@@ -257,7 +263,7 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     /// </summary>
     private void RaisePropertyChanged(PropertyChangedEventArgs e)
     {
-        if (PropertyChanged == null) return;
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
