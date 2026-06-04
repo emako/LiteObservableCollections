@@ -13,7 +13,7 @@
 		<RepositoryUrl>https://github.com/emako/LiteObservableCollections</RepositoryUrl>
 		<PackageProjectUrl>https://github.com/emako/LiteObservableCollections</PackageProjectUrl>
         <RepositoryType>git</RepositoryType>
-        <PackageTags>ObservableCollections MVVM</PackageTags>
+        <PackageTags>ObservableCollections MVVM Concurrent</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<Description>Lite version of ObservableCollections with fewer features but better performance.</Description>
 		<PackageIcon>Logo.png</PackageIcon>
