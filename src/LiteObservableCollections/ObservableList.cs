@@ -239,6 +239,32 @@ public partial class ObservableList<T> : IObservableList<T>, INotifyCollectionCh
     }
 
     /// <summary>
+    /// Synchronizes this list with the specified collection while preserving existing items at matching indexes.
+    /// </summary>
+    /// <param name="items">The collection to synchronize with.</param>
+    /// <param name="assign">Copies data from a source item to the existing item at the same index. The index is zero-based.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="items"/> or <paramref name="assign"/> is null.</exception>
+    public void Sync(IEnumerable<T> items, Action<int, T, T> assign)
+    {
+        if (items == null) throw new ArgumentNullException(nameof(items));
+        if (assign == null) throw new ArgumentNullException(nameof(assign));
+
+        int index = 0;
+        foreach (T item in items)
+        {
+            if (index < _items.Count)
+                assign(index, _items[index], item);
+            else
+                Add(item);
+
+            index++;
+        }
+
+        for (int removeIndex = _items.Count - 1; removeIndex >= index; removeIndex--)
+            RemoveAt(removeIndex);
+    }
+
+    /// <summary>
     /// Determines whether the list contains a specific value.
     /// </summary>
     /// <param name="item">The object to locate in the list.</param>
@@ -454,6 +480,13 @@ public interface IObservableList<T> : IList<T>, INotifyCollectionChanged, INotif
     /// </summary>
     /// <param name="items">The collection whose elements should be removed from the list.</param>
     public void RemoveRange(IEnumerable<T> items);
+
+    /// <summary>
+    /// Synchronizes this list with the specified collection while preserving existing items at matching indexes.
+    /// </summary>
+    /// <param name="items">The collection to synchronize with.</param>
+    /// <param name="assign">Copies data from a source item to the existing item at the same index. The index is zero-based.</param>
+    public void Sync(IEnumerable<T> items, Action<int, T, T> assign);
 
     /// <summary>
     /// Moves the element at the specified old index to the new index and raises collection change notifications.
