@@ -88,6 +88,94 @@ view.AttachFilter(x => x >= 2);
 - `AttachSort()` / `AttachSort(comparer)` / `AttachSort(comparison)` / `ResetSort()` — sort operates on view elements. Sort is re-applied on each `Refresh()`.
 - `ObservableViewList` implements `IDisposable`; dispose to unsubscribe from the source.
 
+### EventListeners
+
+`ObservableList<T>` raises collection-level notifications only. To react to a property change on an item, the item must implement `INotifyPropertyChanged`. You can inherit from `ObservableObject` to implement the standard notification pattern:
+
+```csharp
+using LiteObservableCollections.ComponentModel;
+
+public sealed class Person : ObservableObject
+{
+    private string _name = string.Empty;
+
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+}
+```
+
+Use `PropertyChangedEventListener` to register handlers for all properties or a specific property. The listener is `IDisposable`; dispose it when the subscription is no longer needed.
+
+```csharp
+using LiteObservableCollections.EventListeners;
+
+var person = new Person();
+using var listener = new PropertyChangedEventListener(person);
+
+listener.RegisterHandler((_, e) =>
+    Console.WriteLine($"{e.PropertyName} changed"));
+
+listener.RegisterHandler(nameof(Person.Name), (_, _) =>
+    Console.WriteLine("Name changed"));
+
+person.Name = "Ada";
+```
+
+You can also use a property expression to avoid string literals:
+
+```csharp
+listener.RegisterHandler(() => person.Name, (_, _) =>
+    Console.WriteLine("Name changed"));
+```
+
+To observe property changes from every item in an `ObservableList<T>` or `ObservableCollection<T>`, use `CollectionItemPropertyChangedListener<T>`. It automatically tracks adds, removes, replacements, resets, and duplicate references in the source collection.
+
+```csharp
+using LiteObservableCollections;
+using LiteObservableCollections.EventListeners;
+
+var people = new ObservableList<Person>();
+using var itemListener = new CollectionItemPropertyChangedListener<Person>(people);
+
+itemListener.ItemPropertyChanged += (_, e) =>
+    Console.WriteLine($"{e.Item.Name}.{e.PropertyChangedEventArgs.PropertyName} changed");
+
+var person = new Person();
+people.Add(person);
+person.Name = "Ada";
+```
+
+`CollectionChangedEventListener` provides the same pattern for collection events and can filter handlers by `NotifyCollectionChangedAction`:
+
+```csharp
+using System.Collections.Specialized;
+using LiteObservableCollections;
+using LiteObservableCollections.EventListeners;
+
+var list = new ObservableList<Person>();
+using var listener = new CollectionChangedEventListener(list);
+
+listener.RegisterHandler(NotifyCollectionChangedAction.Add, (_, e) =>
+    Console.WriteLine($"Added {e.NewItems?.Count} item(s)"));
+
+list.Add(new Person());
+```
+
+For subscriptions whose lifetime is shorter than the event source, use `PropertyChangedWeakEventListener` or `CollectionChangedWeakEventListener` from `LiteObservableCollections.EventListeners.WeakEvents`. They retain the listener weakly, helping prevent the source from keeping the listener alive. Keep a strong reference to the listener for as long as it should receive events, and still call `Dispose()` when deterministic unsubscription is needed.
+
+```csharp
+using LiteObservableCollections.EventListeners.WeakEvents;
+
+var listener = new PropertyChangedWeakEventListener(person);
+listener.RegisterHandler(nameof(Person.Name), (_, _) =>
+    Console.WriteLine("Name changed"));
+```
+
+> `ObservableViewList` refreshes itself when its source collection changes. An item's `PropertyChanged` event does not automatically reapply the view's filter or sort; handle the item event and call `view.Refresh()` when needed.
+
 ## Why AddRange?
 
 The `AddRange` method allows you to efficiently add multiple items at once, reducing the number of notifications and improving performance in UI scenarios.

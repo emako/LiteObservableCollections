@@ -55,19 +55,12 @@ public sealed class CollectionChangedEventListener : EventListener<NotifyCollect
         IEnumerable<KeyValuePair<NotifyCollectionChangedAction, List<NotifyCollectionChangedEventHandler>>>.
         GetEnumerator()
     {
-        return
-            ((
-                    IEnumerable
-                    <KeyValuePair<NotifyCollectionChangedAction, List<NotifyCollectionChangedEventHandler>>>)
-                _bag).GetEnumerator();
+        return ((IEnumerable<KeyValuePair<NotifyCollectionChangedAction, List<NotifyCollectionChangedEventHandler>>>)_bag).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return ((
-                IEnumerable
-                <KeyValuePair<NotifyCollectionChangedAction, List<NotifyCollectionChangedEventHandler>>>)
-            _bag).GetEnumerator();
+        return ((IEnumerable<KeyValuePair<NotifyCollectionChangedAction, List<NotifyCollectionChangedEventHandler>>>)_bag).GetEnumerator();
     }
 
     /// <summary>
