@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using LiteObservableCollections.EventListeners;
+using LiteObservableCollections.Internals;
 
 namespace LiteObservableCollections;
 
@@ -20,6 +22,8 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     /// The internal list storing the collection elements.
     /// </summary>
     private readonly List<T> _items;
+
+    private ObservableCollectionItemPropertyChangeHost<T>? _itemPropertyChangeHost;
 
     /// <summary>
     /// Gets or sets the optional event dispatcher. When set, CollectionChanged and PropertyChanged are raised on the dispatcher's context (e.g. UI thread).
@@ -85,6 +89,26 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     /// Occurs when a property value changes.
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// Occurs when a property changes on an item currently contained in the collection.
+    /// The item type must implement <see cref="INotifyPropertyChanged"/>.
+    /// </summary>
+    /// <remarks>
+    /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, use <see cref="CollectionChanged"/>.
+    /// </remarks>
+    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
+    {
+        add
+        {
+            if (value != null)
+                ItemPropertyChangeHost.AddHandler(value);
+        }
+        remove => _itemPropertyChangeHost?.RemoveHandler(value);
+    }
+
+    private ObservableCollectionItemPropertyChangeHost<T> ItemPropertyChangeHost
+        => _itemPropertyChangeHost ??= new ObservableCollectionItemPropertyChangeHost<T>(_items);
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -401,7 +425,11 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     /// </summary>
     private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (!IsNotifyEnabled || CollectionChanged == null) return;
+        if (!IsNotifyEnabled) return;
+
+        _itemPropertyChangeHost?.HandleCollectionChanged(e);
+
+        if (CollectionChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
             EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));

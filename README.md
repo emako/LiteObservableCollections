@@ -131,22 +131,24 @@ listener.RegisterHandler(() => person.Name, (_, _) =>
     Console.WriteLine("Name changed"));
 ```
 
-To observe property changes from every item in an `ObservableList<T>` or `ObservableCollection<T>`, use `CollectionItemPropertyChangedListener<T>`. It automatically tracks adds, removes, replacements, resets, and duplicate references in the source collection.
+To observe property changes from every item in an `ObservableList<T>` or `ObservableCollection<T>`, subscribe to `ItemPropertyChanged` directly when the item type implements `INotifyPropertyChanged`:
 
 ```csharp
 using LiteObservableCollections;
-using LiteObservableCollections.EventListeners;
 
 var people = new ObservableList<Person>();
-using var itemListener = new CollectionItemPropertyChangedListener<Person>(people);
 
-itemListener.ItemPropertyChanged += (_, e) =>
+people.ItemPropertyChanged += (_, e) =>
     Console.WriteLine($"{e.Item.Name}.{e.PropertyChangedEventArgs.PropertyName} changed");
 
 var person = new Person();
 people.Add(person);
 person.Name = "Ada";
 ```
+
+`ItemPropertyChanged` is raised only when an item's property changes. To react to add, remove, replace, or reset operations, use `CollectionChanged` or `CollectionChangedEventListener`.
+
+`CollectionItemPropertyChangedListener<T>` provides the same item property notifications for any `INotifyCollectionChanged` source. It automatically maintains subscriptions across add, remove, replace, reset, and duplicate references in the source collection.
 
 `CollectionChangedEventListener` provides the same pattern for collection events and can filter handlers by `NotifyCollectionChangedAction`:
 
