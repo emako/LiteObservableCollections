@@ -147,11 +147,13 @@ people.Add(person);
 person.Name = "Ada";
 ```
 
-`ItemPropertyChanged` is raised only when an item's property changes. The event `sender` is the collection (or listener) instance. Raising respects `IsNotifyEnabled` and is marshalled through `EventDispatcher` when set. Item subscriptions stay synchronized with the collection even while notifications are disabled. To react to add, remove, replace, or reset operations, use `CollectionChanged` or `CollectionChangedEventListener`.
+`ItemPropertyChanged` is raised only when an item's property changes. The event `sender` is the collection. Like `CollectionChanged`, it respects `IsNotifyEnabled` and is marshalled through `EventDispatcher` when set; a marshalled event is dropped if the item was removed before delivery. Item subscriptions stay synchronized with the collection even while notifications are disabled. To react to add, remove, replace, or reset operations, use `CollectionChanged` or `CollectionChangedEventListener`.
 
-Against abstractions, use `IItemPropertyObservable<T>` instead of downcasting to the concrete collection type. The event is not declared on `IObservableList<T>` / `IObservableCollection<T>`.
+Items are subscribed when the first handler is attached and unsubscribed when the last handler is removed. While a handler is attached, each observed item references the collection through its `PropertyChanged` event, so items that outlive the collection keep it alive. Remove your handlers when they are no longer needed. Adding and removing handlers is thread-safe.
 
-`CollectionItemPropertyChangedListener<T>` provides the same item property notifications for any source that implements both `IEnumerable<T>` and `INotifyCollectionChanged`. For the library's built-in collections it reuses `ItemPropertyChanged`, so dispatcher and notification-suppression behavior stay consistent. For other sources it maintains subscriptions from the source's collection-change events across add, remove, replace, reset, and duplicate references; mutations for which the source suppresses `CollectionChanged` cannot be observed.
+Against abstractions, use `IItemPropertyObservable<T>` instead of downcasting to the concrete collection type. The event is not declared on `IObservableList<T>` / `IObservableCollection<T>`, and other collection types (such as `ObservableViewList` or the concurrent collections) do not implement it.
+
+`CollectionItemPropertyChangedListener<T>` provides item property notifications for any source that implements both `IEnumerable<T>` and `INotifyCollectionChanged`; the event `sender` is the listener. It raises synchronously on the thread that changed the item and is not affected by the source's `IsNotifyEnabled` or `EventDispatcher`. For `ObservableList<T>` and `ObservableCollection<T>` it shares the collection's item subscriptions, which stay synchronized even while the collection's notifications are disabled. For other sources it maintains subscriptions from the source's collection-change events across add, remove, replace, reset, and duplicate references; mutations for which the source suppresses `CollectionChanged` cannot be observed. Dispose the listener to release its item subscriptions.
 
 `CollectionChangedEventListener` provides the same pattern for collection events and can filter handlers by `NotifyCollectionChangedAction`:
 
