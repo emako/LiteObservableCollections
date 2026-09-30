@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using LiteObservableCollections.Internals;
 
 namespace LiteObservableCollections;
 
@@ -9,7 +10,7 @@ namespace LiteObservableCollections;
 /// A lite observable collection that supports <see cref="INotifyCollectionChanged"/> and <see cref="INotifyPropertyChanged"/>, and supports AddRange for batch addition.
 /// </summary>
 /// <typeparam name="T">The type of elements in the collection.</typeparam>
-public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public class ObservableCollection<T> : IObservableCollection<T>, IDirectItemPropertyChangeSource<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Indexer Name to notify that the this[] has changed.
@@ -20,6 +21,8 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     /// The internal list storing the collection elements.
     /// </summary>
     private readonly List<T> _items;
+
+    private ItemPropertyChangeHost<T>? _itemPropertyChangeHost;
 
     /// <summary>
     /// Gets or sets the optional event dispatcher. When set, CollectionChanged and PropertyChanged are raised on the dispatcher's context (e.g. UI thread).
@@ -35,8 +38,10 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public bool IsNotifyOnEachInRange { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
-    /// When false, modifications to the collection do not raise any events. Default is true.
+    /// Gets or sets whether change notifications (<see cref="CollectionChanged"/>, <see cref="PropertyChanged"/>, and
+    /// <see cref="ItemPropertyChanged"/>) are raised.
+    /// When false, modifications to the collection do not raise outward events, but item <see cref="INotifyPropertyChanged"/>
+    /// subscriptions used by <see cref="ItemPropertyChanged"/> remain synchronized with collection contents. Default is true.
     /// </summary>
     public bool IsNotifyEnabled { get; set; } = true;
 
@@ -87,6 +92,52 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
+    /// Occurs when a property changes on an item currently contained in the collection.
+    /// Reference-type items that implement <see cref="INotifyPropertyChanged"/> are observed;
+    /// other items are ignored.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, use <see cref="CollectionChanged"/>.
+    /// </para>
+    /// <para>
+    /// Raising respects <see cref="IsNotifyEnabled"/> and is marshalled through <see cref="EventDispatcher"/> when set,
+    /// matching <see cref="CollectionChanged"/> / <see cref="PropertyChanged"/>: both are checked when the item changes,
+    /// and a marshalled event is delivered to the handlers attached at delivery time. A marshalled event is dropped if
+    /// the item has been removed before delivery. Item subscriptions stay synchronized with the collection contents even
+    /// while notifications are disabled.
+    /// </para>
+    /// <para>
+    /// Items are subscribed when the first handler is attached and unsubscribed when the last one is removed.
+    /// While a handler is attached, every observed item references this collection through its
+    /// <see cref="INotifyPropertyChanged.PropertyChanged"/> event, so items that outlive the collection keep it alive;
+    /// remove handlers when they are no longer needed. Adding and removing handlers is thread-safe.
+    /// </para>
+    /// </remarks>
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
+    {
+        add
+        {
+            if (value != null)
+                ItemPropertyChangeHost.AddHandler(value);
+        }
+        remove => _itemPropertyChangeHost?.RemoveHandler(value);
+    }
+
+    void IDirectItemPropertyChangeSource<T>.AddDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
+        => ItemPropertyChangeHost.AddDirectHandler(handler);
+
+    void IDirectItemPropertyChangeSource<T>.RemoveDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
+        => _itemPropertyChangeHost?.RemoveDirectHandler(handler);
+
+    private ItemPropertyChangeHost<T> ItemPropertyChangeHost
+        => LazyInitializer.EnsureInitialized(ref _itemPropertyChangeHost, () => new ItemPropertyChangeHost<T>(
+            _items,
+            this,
+            () => IsNotifyEnabled,
+            () => EventDispatcher))!;
+
+    /// <summary>
     /// Gets or sets the element at the specified index.
     /// </summary>
     /// <param name="index">The zero-based index of the element to get or set.</param>
@@ -98,6 +149,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
         {
             T oldItem = _items[index];
             _items[index] = value;
+            _itemPropertyChangeHost?.OnReplaced(oldItem, value);
             OnPropertyChanged(IndexerName);
             RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, oldItem, index));
         }
@@ -135,6 +187,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public void Add(T item)
     {
         _items.Add(item);
+        _itemPropertyChangeHost?.OnAdded(item);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1));
@@ -154,7 +207,9 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
         }
         else
         {
+            int startIndex = _items.Count;
             _items.AddRange(items);
+            _itemPropertyChangeHost?.OnRangeAdded(startIndex);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(IndexerName);
             RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
@@ -176,9 +231,15 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
         }
 
         bool anyRemoved = false;
-        foreach (var item in items)
+        foreach (T item in items)
         {
-            if (_items.Remove(item)) anyRemoved = true;
+            int index = _items.IndexOf(item);
+            if (index < 0) continue;
+
+            T removedItem = _items[index];
+            _items.RemoveAt(index);
+            _itemPropertyChangeHost?.OnRemoved(removedItem);
+            anyRemoved = true;
         }
 
         if (anyRemoved)
@@ -198,10 +259,12 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     {
         int index = _items.IndexOf(item);
         if (index < 0) return false;
+        T removedItem = _items[index];
         _items.RemoveAt(index);
+        _itemPropertyChangeHost?.OnRemoved(removedItem);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removedItem, index));
         return true;
     }
 
@@ -211,6 +274,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public void Clear()
     {
         _items.Clear();
+        _itemPropertyChangeHost?.OnCleared();
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
@@ -226,6 +290,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
         _items.Clear();
         if (items != null)
             _items.AddRange(items);
+        _itemPropertyChangeHost?.OnReset();
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
@@ -298,6 +363,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public void Insert(int index, T item)
     {
         _items.Insert(index, item);
+        _itemPropertyChangeHost?.OnAdded(item);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
@@ -311,6 +377,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     {
         T oldItem = _items[index];
         _items.RemoveAt(index);
+        _itemPropertyChangeHost?.OnRemoved(oldItem);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
         RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, index));
@@ -425,7 +492,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     }
 }
 
-public interface IObservableCollection<T> : IList<T>, ICollection<T>, IEnumerable<T>, IEnumerable, IList, ICollection, IReadOnlyList<T>, IReadOnlyCollection<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public interface IObservableCollection<T> : IList<T>, ICollection<T>, IEnumerable<T>, IEnumerable, IList, ICollection, IReadOnlyList<T>, IReadOnlyCollection<T>, IItemPropertyObservable<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Adds the elements of the specified collection to the end of the list.
