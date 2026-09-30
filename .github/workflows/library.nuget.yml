@@ -20,7 +20,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Install dependencies
         run: dotnet restore LiteObservableCollections.slnx
@@ -32,6 +34,7 @@ jobs:
         run: dotnet test tests/LiteObservableCollections.Tests/LiteObservableCollections.Tests.csproj --configuration Release --no-restore
 
       - name: Upload NuGet packages
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: nuget-packages

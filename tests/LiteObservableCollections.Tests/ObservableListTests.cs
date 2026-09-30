@@ -70,11 +70,11 @@ public class ObservableListTests
 
         list.Move(0, 1);
         Assert.Equal(new[] { "c", "a" }, list);
-        Assert.Equal(NotifyCollectionChangedAction.Move, events[^1].Action);
+        Assert.Equal(NotifyCollectionChangedAction.Move, events.Last().Action);
 
         list.Reset(["x"]);
         Assert.Equal(new[] { "x" }, list);
-        Assert.Equal(NotifyCollectionChangedAction.Reset, events[^1].Action);
+        Assert.Equal(NotifyCollectionChangedAction.Reset, events.Last().Action);
 
         list.Clear();
         Assert.Empty(list);
