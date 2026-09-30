@@ -1,5 +1,3 @@
-using LiteObservableCollections.EventListeners;
-
 namespace LiteObservableCollections.Internals;
 
 /// <summary>
@@ -19,13 +17,13 @@ internal sealed class ItemPropertyChangeHost<T>(
     private readonly object _gate = new();
     private volatile CollectionItemPropertyChangeNotifier<T>? _notifier;
 
-    public void AddHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    public void AddHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
     {
         lock (_gate)
             EnsureNotifier().ItemPropertyChanged += handler;
     }
 
-    public void RemoveHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>>? handler)
+    public void RemoveHandler(EventHandler<ItemPropertyChangedEventArgs<T>>? handler)
     {
         lock (_gate)
         {
@@ -35,13 +33,13 @@ internal sealed class ItemPropertyChangeHost<T>(
         }
     }
 
-    public void AddDirectHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    public void AddDirectHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
     {
         lock (_gate)
             EnsureNotifier().DirectItemPropertyChanged += handler;
     }
 
-    public void RemoveDirectHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    public void RemoveDirectHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
     {
         lock (_gate)
         {

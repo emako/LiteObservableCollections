@@ -7,10 +7,10 @@ namespace LiteObservableCollections;
 /// </summary>
 /// <typeparam name="T">The type of items being observed.</typeparam>
 /// <remarks>
-/// Implemented by <see cref="ObservableList{T}"/>, <see cref="ObservableCollection{T}"/>, and
-/// <see cref="CollectionItemPropertyChangedListener{T}"/>. Prefer this interface over downcasting to a concrete collection type.
-/// Built-in collection events observe reference-type items that implement
-/// <see cref="System.ComponentModel.INotifyPropertyChanged"/>; other items are ignored.
+/// Inherited by <see cref="IObservableList{T}"/> and <see cref="IObservableCollection{T}"/>, and implemented by
+/// <see cref="CollectionItemPropertyChangedListener{T}"/>.
+/// Reference-type items that implement <see cref="System.ComponentModel.INotifyPropertyChanged"/> are observed;
+/// other items are ignored.
 /// </remarks>
 public interface IItemPropertyObservable<T>
 {
@@ -21,5 +21,5 @@ public interface IItemPropertyObservable<T>
     /// Raised for item property changes only. For add, remove, replace, and reset notifications, use
     /// <see cref="System.Collections.Specialized.INotifyCollectionChanged.CollectionChanged"/>.
     /// </remarks>
-    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
 }

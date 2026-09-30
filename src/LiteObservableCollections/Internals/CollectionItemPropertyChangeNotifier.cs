@@ -1,4 +1,3 @@
-using LiteObservableCollections.EventListeners;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -48,13 +47,13 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
     /// <summary>
     /// Raised subject to <c>canRaise</c> and marshalled through the dispatcher, like the owner's other notifications.
     /// </summary>
-    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
 
     /// <summary>
     /// Raised synchronously on the thread that raised the item's <see cref="INotifyPropertyChanged.PropertyChanged"/>,
     /// ignoring <c>canRaise</c> and the dispatcher.
     /// </summary>
-    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? DirectItemPropertyChanged;
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? DirectItemPropertyChanged;
 
     public bool HasHandlers => ItemPropertyChanged != null || DirectItemPropertyChanged != null;
 
@@ -162,11 +161,11 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
     {
         if (_disposed || !subscription.IsActive) return;
 
-        EventHandler<CollectionItemPropertyChangedEventArgs<T>>? direct = DirectItemPropertyChanged;
+        EventHandler<ItemPropertyChangedEventArgs<T>>? direct = DirectItemPropertyChanged;
         bool raiseNotified = ItemPropertyChanged != null && (_canRaise == null || _canRaise());
         if (direct == null && !raiseNotified) return;
 
-        CollectionItemPropertyChangedEventArgs<T> args = new(subscription.Item, e);
+        ItemPropertyChangedEventArgs<T> args = new(subscription.Item, e);
         direct?.Invoke(_eventOwner, args);
 
         if (!raiseNotified) return;

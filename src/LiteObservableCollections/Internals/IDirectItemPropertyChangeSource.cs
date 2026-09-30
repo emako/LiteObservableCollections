@@ -12,7 +12,7 @@ namespace LiteObservableCollections.Internals;
 /// </remarks>
 internal interface IDirectItemPropertyChangeSource<T>
 {
-    public void AddDirectItemPropertyChangedHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler);
+    public void AddDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler);
 
-    public void RemoveDirectItemPropertyChangedHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler);
+    public void RemoveDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler);
 }

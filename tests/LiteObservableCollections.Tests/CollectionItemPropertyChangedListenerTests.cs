@@ -155,8 +155,8 @@ public class CollectionItemPropertyChangedListenerTests
 
         int firstRaised = 0;
         int secondRaised = 0;
-        EventHandler<CollectionItemPropertyChangedEventArgs<Person>> first = (_, _) => firstRaised++;
-        EventHandler<CollectionItemPropertyChangedEventArgs<Person>> second = (_, _) => secondRaised++;
+        EventHandler<ItemPropertyChangedEventArgs<Person>> first = (_, _) => firstRaised++;
+        EventHandler<ItemPropertyChangedEventArgs<Person>> second = (_, _) => secondRaised++;
 
         listener.ItemPropertyChanged += first + second;
         listener.ItemPropertyChanged -= first;
@@ -177,6 +177,26 @@ public class CollectionItemPropertyChangedListenerTests
         listener.Dispose();
 
         Assert.Equal(1, item.RemovedHandlers);
+    }
+
+    [Fact]
+    public void Listener_Observes_Runtime_Types_Of_Unconstrained_Items()
+    {
+        Person listPerson = new();
+        Person bclPerson = new();
+        ObservableList<object?> list = new([1, null, listPerson]);
+        System.Collections.ObjectModel.ObservableCollection<object?> bcl = new([2, null, bclPerson]);
+        using CollectionItemPropertyChangedListener<object?> listListener = new(list);
+        using CollectionItemPropertyChangedListener<object?> bclListener = new(bcl);
+
+        List<object?> changed = [];
+        listListener.ItemPropertyChanged += (_, e) => changed.Add(e.Item);
+        bclListener.ItemPropertyChanged += (_, e) => changed.Add(e.Item);
+
+        listPerson.Name = "Ada";
+        bclPerson.Name = "Grace";
+
+        Assert.Equal(new object?[] { listPerson, bclPerson }, changed);
     }
 
     [Fact]

@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using LiteObservableCollections.EventListeners;
 using LiteObservableCollections.Internals;
 
 namespace LiteObservableCollections;
@@ -11,7 +10,7 @@ namespace LiteObservableCollections;
 /// A lite observable collection that supports <see cref="INotifyCollectionChanged"/> and <see cref="INotifyPropertyChanged"/>, and supports AddRange for batch addition.
 /// </summary>
 /// <typeparam name="T">The type of elements in the collection.</typeparam>
-public class ObservableCollection<T> : IObservableCollection<T>, IItemPropertyObservable<T>, IDirectItemPropertyChangeSource<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public class ObservableCollection<T> : IObservableCollection<T>, IDirectItemPropertyChangeSource<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Indexer Name to notify that the this[] has changed.
@@ -100,7 +99,6 @@ public class ObservableCollection<T> : IObservableCollection<T>, IItemPropertyOb
     /// <remarks>
     /// <para>
     /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, use <see cref="CollectionChanged"/>.
-    /// Prefer <see cref="IItemPropertyObservable{T}"/> when coding against abstractions.
     /// </para>
     /// <para>
     /// Raising respects <see cref="IsNotifyEnabled"/> and is marshalled through <see cref="EventDispatcher"/> when set,
@@ -116,7 +114,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, IItemPropertyOb
     /// remove handlers when they are no longer needed. Adding and removing handlers is thread-safe.
     /// </para>
     /// </remarks>
-    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
     {
         add
         {
@@ -126,10 +124,10 @@ public class ObservableCollection<T> : IObservableCollection<T>, IItemPropertyOb
         remove => _itemPropertyChangeHost?.RemoveHandler(value);
     }
 
-    void IDirectItemPropertyChangeSource<T>.AddDirectItemPropertyChangedHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    void IDirectItemPropertyChangeSource<T>.AddDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
         => ItemPropertyChangeHost.AddDirectHandler(handler);
 
-    void IDirectItemPropertyChangeSource<T>.RemoveDirectItemPropertyChangedHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    void IDirectItemPropertyChangeSource<T>.RemoveDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
         => _itemPropertyChangeHost?.RemoveDirectHandler(handler);
 
     private ItemPropertyChangeHost<T> ItemPropertyChangeHost
@@ -494,7 +492,7 @@ public class ObservableCollection<T> : IObservableCollection<T>, IItemPropertyOb
     }
 }
 
-public interface IObservableCollection<T> : IList<T>, ICollection<T>, IEnumerable<T>, IEnumerable, IList, ICollection, IReadOnlyList<T>, IReadOnlyCollection<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public interface IObservableCollection<T> : IList<T>, ICollection<T>, IEnumerable<T>, IEnumerable, IList, ICollection, IReadOnlyList<T>, IReadOnlyCollection<T>, IItemPropertyObservable<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Adds the elements of the specified collection to the end of the list.

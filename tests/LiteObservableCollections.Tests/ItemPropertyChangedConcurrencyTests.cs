@@ -1,5 +1,3 @@
-using LiteObservableCollections.EventListeners;
-
 namespace LiteObservableCollections.Tests;
 
 public class ItemPropertyChangedConcurrencyTests
@@ -44,7 +42,7 @@ public class ItemPropertyChangedConcurrencyTests
         {
             Person person = new();
             ObservableList<Person> list = new([person]);
-            EventHandler<CollectionItemPropertyChangedEventArgs<Person>> existing = (_, _) => { };
+            EventHandler<ItemPropertyChangedEventArgs<Person>> existing = (_, _) => { };
             list.ItemPropertyChanged += existing;
             int added = 0;
 

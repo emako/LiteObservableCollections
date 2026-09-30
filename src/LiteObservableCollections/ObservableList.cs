@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using LiteObservableCollections.EventListeners;
 using LiteObservableCollections.Internals;
 
 namespace LiteObservableCollections;
@@ -13,7 +12,7 @@ namespace LiteObservableCollections;
 /// <summary>
 /// Represents a list that notifies listeners of dynamic changes, such as when items get added, removed, or the whole list is refreshed.
 /// </summary>
-public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObservable<T>, IDirectItemPropertyChangeSource<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public partial class ObservableList<T> : IObservableList<T>, IDirectItemPropertyChangeSource<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Indexer Name to notify that the this[] has changed.
@@ -125,7 +124,6 @@ public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObserv
     /// <remarks>
     /// <para>
     /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, use <see cref="CollectionChanged"/>.
-    /// Prefer <see cref="IItemPropertyObservable{T}"/> when coding against abstractions.
     /// </para>
     /// <para>
     /// Raising respects <see cref="IsNotifyEnabled"/> and is marshalled through <see cref="EventDispatcher"/> when set,
@@ -141,7 +139,7 @@ public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObserv
     /// remove handlers when they are no longer needed. Adding and removing handlers is thread-safe.
     /// </para>
     /// </remarks>
-    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
     {
         add
         {
@@ -151,10 +149,10 @@ public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObserv
         remove => _itemPropertyChangeHost?.RemoveHandler(value);
     }
 
-    void IDirectItemPropertyChangeSource<T>.AddDirectItemPropertyChangedHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    void IDirectItemPropertyChangeSource<T>.AddDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
         => ItemPropertyChangeHost.AddDirectHandler(handler);
 
-    void IDirectItemPropertyChangeSource<T>.RemoveDirectItemPropertyChangedHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    void IDirectItemPropertyChangeSource<T>.RemoveDirectItemPropertyChangedHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
         => _itemPropertyChangeHost?.RemoveDirectHandler(handler);
 
     private ItemPropertyChangeHost<T> ItemPropertyChangeHost
@@ -534,7 +532,7 @@ public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObserv
 /// <summary>
 /// Defines an observable list interface that supports range addition.
 /// </summary>
-public interface IObservableList<T> : IList<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public interface IObservableList<T> : IList<T>, IItemPropertyObservable<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Adds the elements of the specified collection to the end of the list.

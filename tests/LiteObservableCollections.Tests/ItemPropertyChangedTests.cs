@@ -1,7 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
-using LiteObservableCollections.EventListeners;
 
 namespace LiteObservableCollections.Tests;
 
@@ -198,9 +197,9 @@ public class ItemPropertyChangedTests
         int firstRaised = 0;
         int retainedRaised = 0;
         int lateRaised = 0;
-        void First(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => firstRaised++;
-        void Retained(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => retainedRaised++;
-        void Late(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => lateRaised++;
+        void First(object? _, ItemPropertyChangedEventArgs<Person> e) => firstRaised++;
+        void Retained(object? _, ItemPropertyChangedEventArgs<Person> e) => retainedRaised++;
+        void Late(object? _, ItemPropertyChangedEventArgs<Person> e) => lateRaised++;
 
         list.ItemPropertyChanged += First;
         list.ItemPropertyChanged += Retained;
@@ -289,7 +288,7 @@ public class ItemPropertyChangedTests
         list.Add(person);
 
         int raised = 0;
-        void Handler(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => raised++;
+        void Handler(object? _, ItemPropertyChangedEventArgs<Person> e) => raised++;
 
         list.ItemPropertyChanged += Handler;
         person.Name = "Ada";
@@ -389,7 +388,7 @@ public class ItemPropertyChangedTests
         ObservableList<CountingNotifyItem> list = new([item]);
 
         int raised = 0;
-        void Handler(object? _, CollectionItemPropertyChangedEventArgs<CountingNotifyItem> e) => raised++;
+        void Handler(object? _, ItemPropertyChangedEventArgs<CountingNotifyItem> e) => raised++;
 
         list.ItemPropertyChanged += Handler;
         Assert.Equal(1, item.AddedHandlers);
@@ -422,18 +421,20 @@ public class ItemPropertyChangedTests
     }
 
     [Fact]
-    public void IItemPropertyObservable_Exposes_Event_On_Abstraction()
+    public void Collection_Interfaces_Expose_ItemPropertyChanged()
     {
-        ObservableList<Person> list = new();
-        IItemPropertyObservable<Person> observable = list;
         Person person = new();
-        list.Add(person);
+        IObservableList<Person> list = new ObservableList<Person>([person]);
+        IObservableCollection<Person> collection = new ObservableCollection<Person>([person]);
 
-        int raised = 0;
-        observable.ItemPropertyChanged += (_, _) => raised++;
+        string? listProperty = null;
+        string? collectionProperty = null;
+        list.ItemPropertyChanged += (_, e) => listProperty = e.PropertyName;
+        collection.ItemPropertyChanged += (_, e) => collectionProperty = e.PropertyName;
         person.Name = "Ada";
 
-        Assert.Equal(1, raised);
+        Assert.Equal(nameof(Person.Name), listProperty);
+        Assert.Equal(nameof(Person.Name), collectionProperty);
     }
 
     [Fact]
