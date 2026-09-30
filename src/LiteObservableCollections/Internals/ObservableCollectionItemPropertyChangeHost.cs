@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using LiteObservableCollections.EventListeners;
 
 namespace LiteObservableCollections.Internals;
@@ -14,6 +15,7 @@ internal sealed class ObservableCollectionItemPropertyChangeHost<T>
     private readonly Func<ICollectionEventDispatcher?> _getDispatcher;
     private CollectionItemPropertyChangeNotifier<T>? _notifier;
 
+    [SuppressMessage("Style", "IDE0290:Use primary constructor")]
     public ObservableCollectionItemPropertyChangeHost(
         IEnumerable<T> items,
         object eventOwner,

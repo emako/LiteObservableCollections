@@ -1,8 +1,7 @@
+using LiteObservableCollections.EventListeners;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using LiteObservableCollections.EventListeners;
 
 namespace LiteObservableCollections.Internals;
 
@@ -15,7 +14,7 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
     private readonly object _eventOwner;
     private readonly Func<bool>? _canRaise;
     private readonly Func<ICollectionEventDispatcher?>? _getDispatcher;
-    private readonly Dictionary<object, Subscription> _subscriptions = new(ReferenceComparer.Instance);
+    private readonly Dictionary<object, Subscription> _subscriptions = [with(ReferenceComparer.Instance)];
     private bool _disposed;
 
     public CollectionItemPropertyChangeNotifier(
@@ -153,7 +152,7 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 
     private void ResetSubscriptions()
     {
-        Dictionary<object, PendingSubscription> pending = new(ReferenceComparer.Instance);
+        Dictionary<object, PendingSubscription> pending = [with(ReferenceComparer.Instance)];
         foreach (T item in _items)
         {
             if (!TryGetObservable(item, out object key, out _))
