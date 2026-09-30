@@ -78,4 +78,28 @@ public class ObservableCollectionTests
         newItem.Name = "New";
         Assert.Equal(1, raised);
     }
+
+    [Fact]
+    public void Remove_Uses_The_Stored_Instance_For_Equal_Items()
+    {
+        EqualPerson first = new(1);
+        EqualPerson second = new(1);
+        ObservableCollection<EqualPerson> collection = new([first, second]);
+
+        object? removedItem = null;
+        collection.CollectionChanged += (_, e) => removedItem = e.OldItems?[0];
+
+        int raised = 0;
+        collection.ItemPropertyChanged += (_, _) => raised++;
+
+        Assert.True(collection.Remove(second));
+        Assert.Same(first, removedItem);
+        Assert.Same(second, Assert.Single(collection));
+
+        first.Name = "removed";
+        Assert.Equal(0, raised);
+
+        second.Name = "retained";
+        Assert.Equal(1, raised);
+    }
 }

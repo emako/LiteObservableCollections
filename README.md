@@ -132,7 +132,7 @@ listener.RegisterHandler(() => person.Name, (_, _) =>
     Console.WriteLine("Name changed"));
 ```
 
-To observe property changes from every item in an `ObservableList<T>` or `ObservableCollection<T>`, subscribe to `ItemPropertyChanged` directly when the item type implements `INotifyPropertyChanged` as a reference type:
+To observe property changes from items in an `ObservableList<T>` or `ObservableCollection<T>`, subscribe to `ItemPropertyChanged` directly. Reference-type items that implement `INotifyPropertyChanged` are observed; other items are ignored:
 
 ```csharp
 using LiteObservableCollections;
@@ -151,7 +151,7 @@ person.Name = "Ada";
 
 Against abstractions, use `IItemPropertyObservable<T>` instead of downcasting to the concrete collection type. The event is not declared on `IObservableList<T>` / `IObservableCollection<T>`.
 
-`CollectionItemPropertyChangedListener<T>` provides the same item property notifications for any source that implements both `IEnumerable<T>` and `INotifyCollectionChanged`. It automatically maintains subscriptions across add, remove, replace, reset, and duplicate references in the source collection.
+`CollectionItemPropertyChangedListener<T>` provides the same item property notifications for any source that implements both `IEnumerable<T>` and `INotifyCollectionChanged`. For the library's built-in collections it reuses `ItemPropertyChanged`, so dispatcher and notification-suppression behavior stay consistent. For other sources it maintains subscriptions from the source's collection-change events across add, remove, replace, reset, and duplicate references; mutations for which the source suppresses `CollectionChanged` cannot be observed.
 
 `CollectionChangedEventListener` provides the same pattern for collection events and can filter handlers by `NotifyCollectionChangedAction`:
 

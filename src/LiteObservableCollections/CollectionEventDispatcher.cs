@@ -85,7 +85,8 @@ public static class ICollectionEventDispatcherExtension
 /// <remarks>
 /// When set on an observable collection, <see cref="INotifyCollectionChanged"/>, <see cref="INotifyPropertyChanged"/>,
 /// and <see cref="IItemPropertyObservable{T}.ItemPropertyChanged"/> are marshalled to the dispatcher's context,
-/// so the collection can be modified from any thread safely for WPF/Avalonia/WinUI binding.
+/// which allows UI-bound handlers to run on the required context. Dispatching notifications does not make
+/// non-concurrent collection implementations thread-safe; callers must still synchronize collection access.
 /// </remarks>
 public interface ICollectionEventDispatcher
 {

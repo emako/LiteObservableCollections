@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using LiteObservableCollections.EventListeners;
 
 namespace LiteObservableCollections.Internals;
@@ -8,13 +9,13 @@ namespace LiteObservableCollections.Internals;
 /// <summary>
 /// Maintains <see cref="INotifyPropertyChanged"/> subscriptions for items in a collection.
 /// </summary>
-internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable where T : class, INotifyPropertyChanged
+internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 {
     private readonly IEnumerable<T> _items;
     private readonly object _eventOwner;
     private readonly Func<bool>? _canRaise;
     private readonly Func<ICollectionEventDispatcher?>? _getDispatcher;
-    private readonly Dictionary<T, int> _subscriptionCounts = new(ReferenceComparer.Instance);
+    private readonly Dictionary<object, Subscription> _subscriptions = new(ReferenceComparer.Instance);
     private bool _disposed;
 
     public CollectionItemPropertyChangeNotifier(
@@ -51,8 +52,8 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable wher
                 break;
 
             case NotifyCollectionChangedAction.Replace:
-                UnsubscribeItems(e.OldItems);
                 SubscribeItems(e.NewItems);
+                UnsubscribeItems(e.OldItems);
                 break;
 
             case NotifyCollectionChangedAction.Reset:
@@ -64,31 +65,32 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable wher
     public void Dispose()
     {
         if (_disposed) return;
-
-        foreach (T item in _subscriptionCounts.Keys.ToArray())
-            item.PropertyChanged -= OnItemPropertyChanged;
-
-        _subscriptionCounts.Clear();
-        ItemPropertyChanged = null;
         _disposed = true;
+
+        foreach (Subscription subscription in _subscriptions.Values)
+            Detach(subscription);
+
+        _subscriptions.Clear();
+        ItemPropertyChanged = null;
     }
 
-    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnItemPropertyChanged(Subscription subscription, PropertyChangedEventArgs e)
     {
-        if (_disposed || sender is not T item) return;
+        if (_disposed || !subscription.IsActive) return;
         if (_canRaise != null && !_canRaise()) return;
 
         EventHandler<CollectionItemPropertyChangedEventArgs<T>>? handlers = ItemPropertyChanged;
         if (handlers == null) return;
 
-        CollectionItemPropertyChangedEventArgs<T> args = new(item, e);
+        CollectionItemPropertyChangedEventArgs<T> args = new(subscription.Item, e);
         ICollectionEventDispatcher? dispatcher = _getDispatcher?.Invoke();
         if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
             dispatcher.Post(() =>
             {
-                if (_disposed) return;
-                ItemPropertyChanged?.Invoke(_eventOwner, args);
+                if (_disposed || !subscription.IsActive) return;
+                if (_canRaise != null && !_canRaise()) return;
+                handlers.Invoke(_eventOwner, args);
             });
             return;
         }
@@ -118,49 +120,126 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable wher
 
     private void Subscribe(T item)
     {
-        if (item is null) return;
+        if (!TryGetObservable(item, out object key, out INotifyPropertyChanged observable))
+            return;
 
-        if (_subscriptionCounts.TryGetValue(item, out int count))
+        if (_subscriptions.TryGetValue(key, out Subscription? subscription))
         {
-            _subscriptionCounts[item] = count + 1;
+            subscription.Count++;
             return;
         }
 
-        _subscriptionCounts.Add(item, 1);
-        item.PropertyChanged += OnItemPropertyChanged;
+        subscription = new Subscription(item, observable);
+        subscription.Handler = (_, e) => OnItemPropertyChanged(subscription, e);
+        _subscriptions.Add(key, subscription);
+        observable.PropertyChanged += subscription.Handler;
     }
 
     private void Unsubscribe(T item)
     {
-        if (item is null) return;
-        if (!_subscriptionCounts.TryGetValue(item, out int count)) return;
-        if (count > 1)
+        if (!TryGetObservable(item, out object key, out _))
+            return;
+        if (!_subscriptions.TryGetValue(key, out Subscription? subscription))
+            return;
+        if (subscription.Count > 1)
         {
-            _subscriptionCounts[item] = count - 1;
+            subscription.Count--;
             return;
         }
 
-        _subscriptionCounts.Remove(item);
-        item.PropertyChanged -= OnItemPropertyChanged;
+        _subscriptions.Remove(key);
+        Detach(subscription);
     }
 
     private void ResetSubscriptions()
     {
-        foreach (T item in _subscriptionCounts.Keys.ToArray())
-            item.PropertyChanged -= OnItemPropertyChanged;
-
-        _subscriptionCounts.Clear();
-
+        Dictionary<object, PendingSubscription> pending = new(ReferenceComparer.Instance);
         foreach (T item in _items)
-            Subscribe(item);
+        {
+            if (!TryGetObservable(item, out object key, out _))
+                continue;
+
+            if (pending.TryGetValue(key, out PendingSubscription? existing))
+            {
+                existing.Count++;
+            }
+            else
+            {
+                pending.Add(key, new PendingSubscription(item));
+            }
+        }
+
+        foreach (KeyValuePair<object, Subscription> pair in _subscriptions.ToArray())
+        {
+            if (pending.TryGetValue(pair.Key, out PendingSubscription? current))
+            {
+                pair.Value.Count = current.Count;
+                pending.Remove(pair.Key);
+                continue;
+            }
+
+            _subscriptions.Remove(pair.Key);
+            Detach(pair.Value);
+        }
+
+        foreach (PendingSubscription current in pending.Values)
+            Subscribe(current.Item);
     }
 
-    private sealed class ReferenceComparer : IEqualityComparer<T>
+    private static bool TryGetObservable(
+        T item,
+        out object key,
+        out INotifyPropertyChanged observable)
+    {
+        object? candidate = item;
+        if (candidate is INotifyPropertyChanged propertyChanged && !candidate.GetType().IsValueType)
+        {
+            key = candidate;
+            observable = propertyChanged;
+            return true;
+        }
+
+        key = null!;
+        observable = null!;
+        return false;
+    }
+
+    private static void Detach(Subscription subscription)
+    {
+        subscription.Deactivate();
+        subscription.Observable.PropertyChanged -= subscription.Handler;
+    }
+
+    private sealed class Subscription(T item, INotifyPropertyChanged observable)
+    {
+        private int _isActive = 1;
+
+        public T Item { get; } = item;
+
+        public INotifyPropertyChanged Observable { get; } = observable;
+
+        public PropertyChangedEventHandler Handler { get; set; } = null!;
+
+        public int Count { get; set; } = 1;
+
+        public bool IsActive => Volatile.Read(ref _isActive) != 0;
+
+        public void Deactivate() => Volatile.Write(ref _isActive, 0);
+    }
+
+    private sealed class PendingSubscription(T item)
+    {
+        public T Item { get; } = item;
+
+        public int Count { get; set; } = 1;
+    }
+
+    private sealed class ReferenceComparer : IEqualityComparer<object>
     {
         public static ReferenceComparer Instance { get; } = new();
 
-        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }

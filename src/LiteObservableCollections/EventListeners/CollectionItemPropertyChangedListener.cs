@@ -13,7 +13,11 @@ public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObse
     where T : class, INotifyPropertyChanged
 {
     private readonly INotifyCollectionChanged _source;
-    private readonly CollectionItemPropertyChangeNotifier<T> _notifier;
+    private readonly IItemPropertyObservable<T>? _itemPropertySource;
+    private readonly CollectionItemPropertyChangeNotifier<T>? _notifier;
+    private readonly Dictionary<
+        EventHandler<CollectionItemPropertyChangedEventArgs<T>>,
+        List<EventHandler<CollectionItemPropertyChangedEventArgs<T>>>> _handlerWrappers = new();
     private bool _disposed;
 
     /// <summary>
@@ -30,9 +34,17 @@ public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObse
         if (source is not INotifyCollectionChanged observableSource)
             throw new ArgumentException("The source must implement INotifyCollectionChanged.", nameof(source));
 
-        _notifier = new CollectionItemPropertyChangeNotifier<T>(source, this);
         _source = observableSource;
-        _source.CollectionChanged += OnCollectionChanged;
+
+        if (source is IItemPropertyObservable<T> itemPropertySource)
+        {
+            _itemPropertySource = itemPropertySource;
+        }
+        else
+        {
+            _notifier = new CollectionItemPropertyChangeNotifier<T>(source, this);
+            _source.CollectionChanged += OnCollectionChanged;
+        }
     }
 
     /// <summary>
@@ -44,8 +56,52 @@ public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObse
     /// </remarks>
     public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
     {
-        add => _notifier.ItemPropertyChanged += value;
-        remove => _notifier.ItemPropertyChanged -= value;
+        add
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(CollectionItemPropertyChangedListener<T>));
+            if (value == null) return;
+
+            EventHandler<CollectionItemPropertyChangedEventArgs<T>> wrapper =
+                (_, e) =>
+                {
+                    if (!_disposed)
+                        value(this, e);
+                };
+
+            if (!_handlerWrappers.TryGetValue(value, out List<EventHandler<CollectionItemPropertyChangedEventArgs<T>>>? wrappers))
+            {
+                wrappers = [];
+                _handlerWrappers.Add(value, wrappers);
+            }
+
+            wrappers.Add(wrapper);
+            try
+            {
+                AddSourceHandler(wrapper);
+            }
+            catch
+            {
+                wrappers.RemoveAt(wrappers.Count - 1);
+                if (wrappers.Count == 0)
+                    _handlerWrappers.Remove(value);
+                throw;
+            }
+        }
+        remove
+        {
+            if (value == null ||
+                !_handlerWrappers.TryGetValue(value, out List<EventHandler<CollectionItemPropertyChangedEventArgs<T>>>? wrappers))
+                return;
+
+            int lastIndex = wrappers.Count - 1;
+            EventHandler<CollectionItemPropertyChangedEventArgs<T>> wrapper = wrappers[lastIndex];
+            wrappers.RemoveAt(lastIndex);
+            if (wrappers.Count == 0)
+                _handlerWrappers.Remove(value);
+
+            RemoveSourceHandler(wrapper);
+        }
     }
 
     /// <summary>
@@ -54,17 +110,45 @@ public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObse
     public void Dispose()
     {
         if (_disposed) return;
-
-        _source.CollectionChanged -= OnCollectionChanged;
-        _notifier.Dispose();
         _disposed = true;
+
+        foreach (List<EventHandler<CollectionItemPropertyChangedEventArgs<T>>> wrappers in _handlerWrappers.Values)
+        {
+            foreach (EventHandler<CollectionItemPropertyChangedEventArgs<T>> wrapper in wrappers)
+                RemoveSourceHandler(wrapper);
+        }
+
+        _handlerWrappers.Clear();
+
+        if (_notifier != null)
+        {
+            _source.CollectionChanged -= OnCollectionChanged;
+            _notifier.Dispose();
+        }
+
         GC.SuppressFinalize(this);
     }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (!_disposed)
-            _notifier.HandleCollectionChanged(e);
+            _notifier?.HandleCollectionChanged(e);
+    }
+
+    private void AddSourceHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    {
+        if (_itemPropertySource != null)
+            _itemPropertySource.ItemPropertyChanged += handler;
+        else
+            _notifier!.ItemPropertyChanged += handler;
+    }
+
+    private void RemoveSourceHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
+    {
+        if (_itemPropertySource != null)
+            _itemPropertySource.ItemPropertyChanged -= handler;
+        else
+            _notifier!.ItemPropertyChanged -= handler;
     }
 }
 

@@ -9,8 +9,8 @@ namespace LiteObservableCollections;
 /// <remarks>
 /// Implemented by <see cref="ObservableList{T}"/>, <see cref="ObservableCollection{T}"/>, and
 /// <see cref="CollectionItemPropertyChangedListener{T}"/>. Prefer this interface over downcasting to a concrete collection type.
-/// The item type must implement <see cref="System.ComponentModel.INotifyPropertyChanged"/> as a reference type when using
-/// the built-in collection events; otherwise subscribing throws <see cref="InvalidOperationException"/>.
+/// Built-in collection events observe reference-type items that implement
+/// <see cref="System.ComponentModel.INotifyPropertyChanged"/>; other items are ignored.
 /// </remarks>
 public interface IItemPropertyObservable<T>
 {

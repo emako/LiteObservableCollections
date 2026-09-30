@@ -119,6 +119,99 @@ public class ItemPropertyChangedTests
     }
 
     [Fact]
+    public void ItemPropertyChanged_Drops_Queued_Event_When_Item_Is_Removed()
+    {
+        ObservableList<Person> list = new();
+        Person person = new();
+        list.Add(person);
+
+        RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
+        list.EventDispatcher = dispatcher;
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        person.Name = "Ada";
+        list.Remove(person);
+        dispatcher.Flush();
+
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Keeps_Queued_Event_When_Replaced_With_Same_Instance()
+    {
+        Person person = new();
+        ObservableList<Person> list = new([person]);
+
+        RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
+        list.EventDispatcher = dispatcher;
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        person.Name = "Ada";
+        list[0] = person;
+        dispatcher.Flush();
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Rechecks_IsNotifyEnabled_When_Queued_Event_Is_Delivered()
+    {
+        ObservableList<Person> list = new();
+        Person person = new();
+        list.Add(person);
+
+        RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
+        list.EventDispatcher = dispatcher;
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        person.Name = "Ada";
+        list.IsNotifyEnabled = false;
+        dispatcher.Flush();
+        Assert.Equal(0, raised);
+
+        list.IsNotifyEnabled = true;
+        person.Name = "Grace";
+        dispatcher.Flush();
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Queued_Event_Uses_Handler_Snapshot()
+    {
+        ObservableList<Person> list = new();
+        Person person = new();
+        list.Add(person);
+
+        RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
+        list.EventDispatcher = dispatcher;
+
+        int firstRaised = 0;
+        int retainedRaised = 0;
+        int lateRaised = 0;
+        void First(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => firstRaised++;
+        void Retained(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => retainedRaised++;
+        void Late(object? _, CollectionItemPropertyChangedEventArgs<Person> e) => lateRaised++;
+
+        list.ItemPropertyChanged += First;
+        list.ItemPropertyChanged += Retained;
+        person.Name = "Ada";
+
+        list.ItemPropertyChanged -= First;
+        list.ItemPropertyChanged += Late;
+        dispatcher.Flush();
+
+        Assert.Equal(1, firstRaised);
+        Assert.Equal(1, retainedRaised);
+        Assert.Equal(0, lateRaised);
+    }
+
+    [Fact]
     public void ItemPropertyChanged_Unsubscribes_After_Remove()
     {
         ObservableList<Person> list = new();
@@ -212,13 +305,101 @@ public class ItemPropertyChangedTests
     }
 
     [Fact]
-    public void ItemPropertyChanged_Throws_For_Value_Type_Items()
+    public void Remove_Uses_The_Stored_Instance_For_Equal_Items()
+    {
+        EqualPerson first = new(1);
+        EqualPerson second = new(1);
+        ObservableList<EqualPerson> list = new([first, second]);
+
+        object? removedItem = null;
+        list.CollectionChanged += (_, e) => removedItem = e.OldItems?[0];
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        Assert.True(list.Remove(second));
+        Assert.Same(first, removedItem);
+        Assert.Same(second, Assert.Single(list));
+
+        first.Name = "removed";
+        Assert.Equal(0, raised);
+
+        second.Name = "retained";
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Allows_Value_Type_Items_And_Ignores_Them()
     {
         ObservableList<int> list = new();
-        Assert.Throws<InvalidOperationException>(() =>
+        int raised = 0;
+
+        Exception? exception = Record.Exception(() => list.ItemPropertyChanged += (_, _) => raised++);
+        list.Add(1);
+
+        Assert.Null(exception);
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Observes_Runtime_Type_Through_Object_Collection()
+    {
+        ObservableList<object> list = new();
+        Person person = new();
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, e) =>
         {
-            list.ItemPropertyChanged += (_, _) => { };
-        });
+            raised++;
+            Assert.Same(person, e.Item);
+        };
+
+        list.Add(person);
+        person.Name = "Ada";
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Does_Not_Require_Item_As_PropertyChanged_Sender()
+    {
+        NonStandardNotifyItem item = new();
+        ObservableList<NonStandardNotifyItem> list = new([item]);
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, e) =>
+        {
+            raised++;
+            Assert.Same(item, e.Item);
+        };
+
+        item.RaiseWithNullSender("Value");
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void Reset_With_Same_Items_Does_Not_Reattach_PropertyChanged_Handlers()
+    {
+        CountingNotifyItem item = new();
+        ObservableList<CountingNotifyItem> list = new([item]);
+
+        int raised = 0;
+        void Handler(object? _, CollectionItemPropertyChangedEventArgs<CountingNotifyItem> e) => raised++;
+
+        list.ItemPropertyChanged += Handler;
+        Assert.Equal(1, item.AddedHandlers);
+        Assert.Equal(0, item.RemovedHandlers);
+
+        list.Reverse();
+        item.Raise("Value");
+
+        Assert.Equal(1, item.AddedHandlers);
+        Assert.Equal(0, item.RemovedHandlers);
+        Assert.Equal(1, raised);
+
+        list.ItemPropertyChanged -= Handler;
+        Assert.Equal(1, item.RemovedHandlers);
     }
 
     [Fact]

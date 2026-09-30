@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.ComponentModel;
 using LiteObservableCollections.ComponentModel;
 
 namespace LiteObservableCollections.Tests;
@@ -19,6 +20,57 @@ internal sealed class Person : ObservableObject
         get => _age;
         set => SetProperty(ref _age, value);
     }
+}
+
+internal sealed class EqualPerson(int id) : ObservableObject
+{
+    private string _name = string.Empty;
+
+    public int Id { get; } = id;
+
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+
+    public override bool Equals(object? obj) => obj is EqualPerson other && Id == other.Id;
+
+    public override int GetHashCode() => Id;
+}
+
+internal sealed class NonStandardNotifyItem : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void RaiseWithNullSender(string propertyName)
+        => PropertyChanged?.Invoke(null, new PropertyChangedEventArgs(propertyName));
+}
+
+internal sealed class CountingNotifyItem : INotifyPropertyChanged
+{
+    private PropertyChangedEventHandler? _propertyChanged;
+
+    public int AddedHandlers { get; private set; }
+
+    public int RemovedHandlers { get; private set; }
+
+    public event PropertyChangedEventHandler? PropertyChanged
+    {
+        add
+        {
+            AddedHandlers++;
+            _propertyChanged += value;
+        }
+        remove
+        {
+            RemovedHandlers++;
+            _propertyChanged -= value;
+        }
+    }
+
+    public void Raise(string propertyName)
+        => _propertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>

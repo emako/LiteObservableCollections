@@ -1,47 +1,7 @@
 using System.Collections.Specialized;
-using System.ComponentModel;
 using LiteObservableCollections.EventListeners;
 
 namespace LiteObservableCollections.Internals;
-
-internal interface IItemPropertyChangeSink : IDisposable
-{
-    void HandleCollectionChanged(NotifyCollectionChangedEventArgs e);
-
-    void AddHandler(Delegate handler);
-
-    void RemoveHandler(Delegate? handler);
-
-    bool HasHandlers { get; }
-}
-
-internal sealed class ItemPropertyChangeSink<T> : IItemPropertyChangeSink where T : class, INotifyPropertyChanged
-{
-    private readonly CollectionItemPropertyChangeNotifier<T> _notifier;
-
-    public ItemPropertyChangeSink(
-        IEnumerable<T> items,
-        object eventOwner,
-        Func<bool>? canRaise,
-        Func<ICollectionEventDispatcher?>? getDispatcher)
-        => _notifier = new CollectionItemPropertyChangeNotifier<T>(items, eventOwner, canRaise, getDispatcher);
-
-    public bool HasHandlers => _notifier.HasHandlers;
-
-    public void HandleCollectionChanged(NotifyCollectionChangedEventArgs e)
-        => _notifier.HandleCollectionChanged(e);
-
-    public void AddHandler(Delegate handler)
-        => _notifier.ItemPropertyChanged += (EventHandler<CollectionItemPropertyChangedEventArgs<T>>)handler;
-
-    public void RemoveHandler(Delegate? handler)
-    {
-        if (handler != null)
-            _notifier.ItemPropertyChanged -= (EventHandler<CollectionItemPropertyChangedEventArgs<T>>)handler;
-    }
-
-    public void Dispose() => _notifier.Dispose();
-}
 
 /// <summary>
 /// Hosts item-level property change notifications for observable collections.
@@ -52,7 +12,7 @@ internal sealed class ObservableCollectionItemPropertyChangeHost<T>
     private readonly object _eventOwner;
     private readonly Func<bool> _canRaise;
     private readonly Func<ICollectionEventDispatcher?> _getDispatcher;
-    private IItemPropertyChangeSink? _sink;
+    private CollectionItemPropertyChangeNotifier<T>? _notifier;
 
     public ObservableCollectionItemPropertyChangeHost(
         IEnumerable<T> items,
@@ -67,38 +27,28 @@ internal sealed class ObservableCollectionItemPropertyChangeHost<T>
     }
 
     public void AddHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>> handler)
-        => EnsureSink().AddHandler(handler);
+        => EnsureNotifier().ItemPropertyChanged += handler;
 
     public void RemoveHandler(EventHandler<CollectionItemPropertyChangedEventArgs<T>>? handler)
     {
-        if (_sink == null) return;
+        if (_notifier == null) return;
 
-        _sink.RemoveHandler(handler);
-        if (_sink.HasHandlers) return;
+        _notifier.ItemPropertyChanged -= handler;
+        if (_notifier.HasHandlers) return;
 
-        _sink.Dispose();
-        _sink = null;
+        _notifier.Dispose();
+        _notifier = null;
     }
 
     public void HandleCollectionChanged(NotifyCollectionChangedEventArgs e)
-        => _sink?.HandleCollectionChanged(e);
+        => _notifier?.HandleCollectionChanged(e);
 
-    private IItemPropertyChangeSink EnsureSink()
+    private CollectionItemPropertyChangeNotifier<T> EnsureNotifier()
     {
-        if (_sink != null) return _sink;
-
-        if (!typeof(INotifyPropertyChanged).IsAssignableFrom(typeof(T)) || typeof(T).IsValueType)
-        {
-            throw new InvalidOperationException(
-                $"Cannot observe item property changes when {typeof(T).Name} does not implement {nameof(INotifyPropertyChanged)} as a reference type.");
-        }
-
-        _sink = (IItemPropertyChangeSink)Activator.CreateInstance(
-            typeof(ItemPropertyChangeSink<>).MakeGenericType(typeof(T)),
+        return _notifier ??= new CollectionItemPropertyChangeNotifier<T>(
             _items,
             _eventOwner,
             _canRaise,
-            _getDispatcher)!;
-        return _sink;
+            _getDispatcher);
     }
 }

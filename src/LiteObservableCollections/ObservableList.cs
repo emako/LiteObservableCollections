@@ -115,7 +115,8 @@ public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObserv
 
     /// <summary>
     /// Occurs when a property changes on an item currently contained in the list.
-    /// The item type must implement <see cref="INotifyPropertyChanged"/> as a reference type.
+    /// Reference-type items that implement <see cref="INotifyPropertyChanged"/> are observed;
+    /// other items are ignored.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -243,10 +244,11 @@ public partial class ObservableList<T> : IObservableList<T>, IItemPropertyObserv
         int index = _items.IndexOf(item);
         if (index < 0) return false;
 
+        T removedItem = _items[index];
         _items.RemoveAt(index);
         OnPropertyChanged(nameof(Count));
         OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removedItem, index));
         return true;
     }
 
