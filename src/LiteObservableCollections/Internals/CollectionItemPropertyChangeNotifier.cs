@@ -11,18 +11,30 @@ namespace LiteObservableCollections.Internals;
 internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable where T : class, INotifyPropertyChanged
 {
     private readonly IEnumerable<T> _items;
-    private readonly Dictionary<T, int> _subscriptionCounts = [with(ReferenceComparer.Instance)];
+    private readonly object _eventOwner;
+    private readonly Func<bool>? _canRaise;
+    private readonly Func<ICollectionEventDispatcher?>? _getDispatcher;
+    private readonly Dictionary<T, int> _subscriptionCounts = new(ReferenceComparer.Instance);
     private bool _disposed;
 
-    public CollectionItemPropertyChangeNotifier(IEnumerable<T> items)
+    public CollectionItemPropertyChangeNotifier(
+        IEnumerable<T> items,
+        object eventOwner,
+        Func<bool>? canRaise = null,
+        Func<ICollectionEventDispatcher?>? getDispatcher = null)
     {
         _items = items ?? throw new ArgumentNullException(nameof(items));
+        _eventOwner = eventOwner ?? throw new ArgumentNullException(nameof(eventOwner));
+        _canRaise = canRaise;
+        _getDispatcher = getDispatcher;
 
         foreach (T item in _items)
             Subscribe(item);
     }
 
     public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
+
+    public bool HasHandlers => ItemPropertyChanged != null;
 
     public void HandleCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
@@ -57,13 +69,31 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable wher
             item.PropertyChanged -= OnItemPropertyChanged;
 
         _subscriptionCounts.Clear();
+        ItemPropertyChanged = null;
         _disposed = true;
     }
 
     private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is T item && !_disposed)
-            ItemPropertyChanged?.Invoke(this, new CollectionItemPropertyChangedEventArgs<T>(item, e));
+        if (_disposed || sender is not T item) return;
+        if (_canRaise != null && !_canRaise()) return;
+
+        EventHandler<CollectionItemPropertyChangedEventArgs<T>>? handlers = ItemPropertyChanged;
+        if (handlers == null) return;
+
+        CollectionItemPropertyChangedEventArgs<T> args = new(item, e);
+        ICollectionEventDispatcher? dispatcher = _getDispatcher?.Invoke();
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
+        {
+            dispatcher.Post(() =>
+            {
+                if (_disposed) return;
+                ItemPropertyChanged?.Invoke(_eventOwner, args);
+            });
+            return;
+        }
+
+        handlers.Invoke(_eventOwner, args);
     }
 
     private void SubscribeItems(System.Collections.IList? items)
@@ -88,6 +118,8 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable wher
 
     private void Subscribe(T item)
     {
+        if (item is null) return;
+
         if (_subscriptionCounts.TryGetValue(item, out int count))
         {
             _subscriptionCounts[item] = count + 1;
@@ -100,6 +132,7 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable wher
 
     private void Unsubscribe(T item)
     {
+        if (item is null) return;
         if (!_subscriptionCounts.TryGetValue(item, out int count)) return;
         if (count > 1)
         {

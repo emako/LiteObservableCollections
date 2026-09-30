@@ -83,8 +83,9 @@ public static class ICollectionEventDispatcherExtension
 /// (e.g. UI thread), avoiding "CollectionView does not support changes to its SourceCollection from a thread other than the dispatcher thread".
 /// </summary>
 /// <remarks>
-/// When set on an observable collection, <see cref="INotifyCollectionChanged"/> and <see cref="INotifyPropertyChanged"/>
-/// are marshalled to the dispatcher's context, so the collection can be modified from any thread safely for WPF/Avalonia/WinUI binding.
+/// When set on an observable collection, <see cref="INotifyCollectionChanged"/>, <see cref="INotifyPropertyChanged"/>,
+/// and <see cref="IItemPropertyObservable{T}.ItemPropertyChanged"/> are marshalled to the dispatcher's context,
+/// so the collection can be modified from any thread safely for WPF/Avalonia/WinUI binding.
 /// </remarks>
 public interface ICollectionEventDispatcher
 {

@@ -9,7 +9,8 @@ namespace LiteObservableCollections.EventListeners;
 /// Subscriptions are automatically maintained as items are added, removed, replaced, or reset.
 /// </summary>
 /// <typeparam name="T">The reference type of items to observe.</typeparam>
-public sealed class CollectionItemPropertyChangedListener<T> : IDisposable where T : class, INotifyPropertyChanged
+public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObservable<T>, IDisposable
+    where T : class, INotifyPropertyChanged
 {
     private readonly INotifyCollectionChanged _source;
     private readonly CollectionItemPropertyChangeNotifier<T> _notifier;
@@ -18,7 +19,10 @@ public sealed class CollectionItemPropertyChangedListener<T> : IDisposable where
     /// <summary>
     /// Initializes a listener for the specified observable collection.
     /// </summary>
-    /// <param name="source">The collection whose items will be observed.</param>
+    /// <param name="source">
+    /// The collection whose items will be observed. Must implement both <see cref="IEnumerable{T}"/> and
+    /// <see cref="INotifyCollectionChanged"/>.
+    /// </param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="source"/> does not implement both required interfaces.</exception>
     public CollectionItemPropertyChangedListener(IEnumerable<T> source)
     {
@@ -26,7 +30,7 @@ public sealed class CollectionItemPropertyChangedListener<T> : IDisposable where
         if (source is not INotifyCollectionChanged observableSource)
             throw new ArgumentException("The source must implement INotifyCollectionChanged.", nameof(source));
 
-        _notifier = new CollectionItemPropertyChangeNotifier<T>(source);
+        _notifier = new CollectionItemPropertyChangeNotifier<T>(source, this);
         _source = observableSource;
         _source.CollectionChanged += OnCollectionChanged;
     }
@@ -36,6 +40,7 @@ public sealed class CollectionItemPropertyChangedListener<T> : IDisposable where
     /// </summary>
     /// <remarks>
     /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, subscribe to the source collection's <see cref="INotifyCollectionChanged.CollectionChanged"/> event or use <see cref="CollectionChangedEventListener"/>.
+    /// The event <c>sender</c> is this listener instance.
     /// </remarks>
     public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
     {

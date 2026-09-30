@@ -11,7 +11,7 @@ namespace LiteObservableCollections;
 /// A lite observable collection that supports <see cref="INotifyCollectionChanged"/> and <see cref="INotifyPropertyChanged"/>, and supports AddRange for batch addition.
 /// </summary>
 /// <typeparam name="T">The type of elements in the collection.</typeparam>
-public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollectionChanged, INotifyPropertyChanged
+public class ObservableCollection<T> : IObservableCollection<T>, IItemPropertyObservable<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
     /// <summary>
     /// Indexer Name to notify that the this[] has changed.
@@ -39,8 +39,10 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     public bool IsNotifyOnEachInRange { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets whether change notifications (CollectionChanged and PropertyChanged) are raised.
-    /// When false, modifications to the collection do not raise any events. Default is true.
+    /// Gets or sets whether change notifications (<see cref="CollectionChanged"/>, <see cref="PropertyChanged"/>, and
+    /// <see cref="ItemPropertyChanged"/>) are raised.
+    /// When false, modifications to the collection do not raise outward events, but item <see cref="INotifyPropertyChanged"/>
+    /// subscriptions used by <see cref="ItemPropertyChanged"/> remain synchronized with collection contents. Default is true.
     /// </summary>
     public bool IsNotifyEnabled { get; set; } = true;
 
@@ -92,10 +94,18 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
 
     /// <summary>
     /// Occurs when a property changes on an item currently contained in the collection.
-    /// The item type must implement <see cref="INotifyPropertyChanged"/>.
+    /// The item type must implement <see cref="INotifyPropertyChanged"/> as a reference type.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, use <see cref="CollectionChanged"/>.
+    /// Prefer <see cref="IItemPropertyObservable{T}"/> when coding against abstractions.
+    /// </para>
+    /// <para>
+    /// Raising respects <see cref="IsNotifyEnabled"/> and is marshalled through <see cref="EventDispatcher"/> when set,
+    /// matching <see cref="CollectionChanged"/> / <see cref="PropertyChanged"/>. Item subscriptions stay synchronized
+    /// with the collection contents even while notifications are disabled.
+    /// </para>
     /// </remarks>
     public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged
     {
@@ -108,7 +118,11 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     }
 
     private ObservableCollectionItemPropertyChangeHost<T> ItemPropertyChangeHost
-        => _itemPropertyChangeHost ??= new ObservableCollectionItemPropertyChangeHost<T>(_items);
+        => _itemPropertyChangeHost ??= new ObservableCollectionItemPropertyChangeHost<T>(
+            _items,
+            this,
+            () => IsNotifyEnabled,
+            () => EventDispatcher);
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -425,10 +439,10 @@ public class ObservableCollection<T> : IObservableCollection<T>, INotifyCollecti
     /// </summary>
     private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (!IsNotifyEnabled) return;
-
+        // Keep item PropertyChanged subscriptions in sync even when outward notifications are suppressed.
         _itemPropertyChangeHost?.HandleCollectionChanged(e);
 
+        if (!IsNotifyEnabled) return;
         if (CollectionChanged == null) return;
         if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
         {
