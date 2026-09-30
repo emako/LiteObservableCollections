@@ -1,4 +1,6 @@
 using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Diagnostics;
 using LiteObservableCollections.EventListeners;
 
 namespace LiteObservableCollections.Tests;
@@ -158,7 +160,7 @@ public class ItemPropertyChangedTests
     }
 
     [Fact]
-    public void ItemPropertyChanged_Rechecks_IsNotifyEnabled_When_Queued_Event_Is_Delivered()
+    public void ItemPropertyChanged_Checks_IsNotifyEnabled_When_Item_Changes_Like_CollectionChanged()
     {
         ObservableList<Person> list = new();
         Person person = new();
@@ -167,22 +169,24 @@ public class ItemPropertyChangedTests
         RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
         list.EventDispatcher = dispatcher;
 
-        int raised = 0;
-        list.ItemPropertyChanged += (_, _) => raised++;
+        int itemRaised = 0;
+        int collectionRaised = 0;
+        list.ItemPropertyChanged += (_, _) => itemRaised++;
+        list.CollectionChanged += (_, _) => collectionRaised++;
 
         person.Name = "Ada";
+        list.Add(new Person());
         list.IsNotifyEnabled = false;
         dispatcher.Flush();
-        Assert.Equal(0, raised);
+        Assert.Equal(1, itemRaised);
+        Assert.Equal(1, collectionRaised);
 
-        list.IsNotifyEnabled = true;
         person.Name = "Grace";
-        dispatcher.Flush();
-        Assert.Equal(1, raised);
+        Assert.Empty(dispatcher.Posted);
     }
 
     [Fact]
-    public void ItemPropertyChanged_Queued_Event_Uses_Handler_Snapshot()
+    public void ItemPropertyChanged_Queued_Event_Uses_Handlers_Attached_At_Delivery()
     {
         ObservableList<Person> list = new();
         Person person = new();
@@ -206,9 +210,9 @@ public class ItemPropertyChangedTests
         list.ItemPropertyChanged += Late;
         dispatcher.Flush();
 
-        Assert.Equal(1, firstRaised);
+        Assert.Equal(0, firstRaised);
         Assert.Equal(1, retainedRaised);
-        Assert.Equal(0, lateRaised);
+        Assert.Equal(1, lateRaised);
     }
 
     [Fact]
@@ -430,5 +434,134 @@ public class ItemPropertyChangedTests
         person.Name = "Ada";
 
         Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void Reset_Counts_Duplicate_New_Items()
+    {
+        ObservableList<Person> list = new();
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        Person person = new();
+        list.Reset([person, person]);
+        list.Remove(person);
+
+        person.Name = "Ada";
+        Assert.Equal(1, raised);
+
+        list.Remove(person);
+        person.Name = "Grace";
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void Clear_Unsubscribes_All_Items()
+    {
+        CountingNotifyItem first = new();
+        CountingNotifyItem second = new();
+        ObservableList<CountingNotifyItem> list = new([first, second, first]);
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+        list.Clear();
+
+        first.Raise("Value");
+        second.Raise("Value");
+
+        Assert.Equal(0, raised);
+        Assert.Equal(1, first.RemovedHandlers);
+        Assert.Equal(1, second.RemovedHandlers);
+    }
+
+    [Fact]
+    public void Sort_And_Move_Keep_Subscriptions_Without_Reattaching()
+    {
+        CountingNotifyItem first = new();
+        CountingNotifyItem second = new();
+        ObservableList<CountingNotifyItem> list = new([first, second]);
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        list.Sort((x, y) => ReferenceEquals(x, y) ? 0 : ReferenceEquals(x, second) ? -1 : 1);
+        list.Move(0, 1);
+        first.Raise("Value");
+        second.Raise("Value");
+
+        Assert.Equal(2, raised);
+        Assert.Equal(1, first.AddedHandlers);
+        Assert.Equal(0, first.RemovedHandlers);
+    }
+
+    [Fact]
+    public void RemoveRange_Unsubscribes_The_Stored_Instance_For_Equal_Items()
+    {
+        EqualPerson first = new(1);
+        EqualPerson second = new(1);
+        ObservableList<EqualPerson> list = new([first, second]);
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        list.RemoveRange([second]);
+
+        first.Name = "removed";
+        Assert.Equal(0, raised);
+
+        second.Name = "retained";
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void AddRange_Subscribes_Only_New_Items()
+    {
+        CountingNotifyItem existing = new();
+        CountingNotifyItem added = new();
+        ObservableList<CountingNotifyItem> list = new([existing]);
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+        list.AddRange([added]);
+
+        added.Raise("Value");
+        existing.Raise("Value");
+
+        Assert.Equal(2, raised);
+        Assert.Equal(1, existing.AddedHandlers);
+        Assert.Equal(1, added.AddedHandlers);
+    }
+
+    [Fact]
+    public void Failed_Item_Subscription_Does_Not_Leave_Partial_Subscriptions()
+    {
+        CountingNotifyItem good = new();
+        ObservableList<INotifyPropertyChanged> list = new([good, new ThrowingNotifyItem()]);
+
+        int raised = 0;
+        Assert.Throws<InvalidOperationException>(() => list.ItemPropertyChanged += (_, _) => raised++);
+
+        good.Raise("Value");
+        Assert.Equal(0, raised);
+        Assert.Equal(1, good.RemovedHandlers);
+
+        list.RemoveAt(1);
+        list.ItemPropertyChanged += (_, _) => raised++;
+        good.Raise("Value");
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void AddRange_Does_Not_Rescan_Existing_Items()
+    {
+        ObservableList<Person> list = new(Enumerable.Range(0, 100_000).Select(_ => new Person()));
+        list.ItemPropertyChanged += (_, _) => { };
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        for (int i = 0; i < 1_000; i++)
+            list.AddRange([new Person()]);
+        stopwatch.Stop();
+
+        Assert.True(stopwatch.ElapsedMilliseconds < 2_000, $"AddRange took {stopwatch.ElapsedMilliseconds} ms.");
     }
 }

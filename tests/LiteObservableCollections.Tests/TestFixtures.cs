@@ -73,6 +73,15 @@ internal sealed class CountingNotifyItem : INotifyPropertyChanged
         => _propertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
+internal sealed class ThrowingNotifyItem : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged
+    {
+        add => throw new InvalidOperationException("Subscription rejected.");
+        remove { }
+    }
+}
+
 /// <summary>
 /// Captures posted/sent actions and can optionally run them immediately.
 /// </summary>

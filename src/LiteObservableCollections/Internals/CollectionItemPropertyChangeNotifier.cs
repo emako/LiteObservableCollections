@@ -8,14 +8,19 @@ namespace LiteObservableCollections.Internals;
 /// <summary>
 /// Maintains <see cref="INotifyPropertyChanged"/> subscriptions for items in a collection.
 /// </summary>
+/// <remarks>
+/// Subscription bookkeeping is synchronized internally. Enumerating the source collection (on construction and
+/// <see cref="Reset"/>) is not, so callers must not mutate the source concurrently with those operations.
+/// </remarks>
 internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 {
+    private readonly object _gate = new();
     private readonly IEnumerable<T> _items;
     private readonly object _eventOwner;
     private readonly Func<bool>? _canRaise;
     private readonly Func<ICollectionEventDispatcher?>? _getDispatcher;
     private readonly Dictionary<object, Subscription> _subscriptions = [with(ReferenceComparer.Instance)];
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public CollectionItemPropertyChangeNotifier(
         IEnumerable<T> items,
@@ -28,73 +33,156 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
         _canRaise = canRaise;
         _getDispatcher = getDispatcher;
 
-        foreach (T item in _items)
-            Subscribe(item);
+        try
+        {
+            foreach (T item in _items)
+                Subscribe(item);
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
     }
 
+    /// <summary>
+    /// Raised subject to <c>canRaise</c> and marshalled through the dispatcher, like the owner's other notifications.
+    /// </summary>
     public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
 
-    public bool HasHandlers => ItemPropertyChanged != null;
+    /// <summary>
+    /// Raised synchronously on the thread that raised the item's <see cref="INotifyPropertyChanged.PropertyChanged"/>,
+    /// ignoring <c>canRaise</c> and the dispatcher.
+    /// </summary>
+    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? DirectItemPropertyChanged;
+
+    public bool HasHandlers => ItemPropertyChanged != null || DirectItemPropertyChanged != null;
+
+    public void Add(T item)
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            Subscribe(item);
+        }
+    }
+
+    public void AddRange(IReadOnlyList<T> items, int startIndex)
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            for (int i = startIndex; i < items.Count; i++)
+                Subscribe(items[i]);
+        }
+    }
+
+    public void Remove(T item)
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            Unsubscribe(item);
+        }
+    }
+
+    public void Replace(T oldItem, T newItem)
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            Subscribe(newItem);
+            Unsubscribe(oldItem);
+        }
+    }
+
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            DetachAll();
+        }
+    }
+
+    /// <summary>
+    /// Re-synchronizes subscriptions with the current source contents without re-attaching items that are still present.
+    /// </summary>
+    public void Reset()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            ResetSubscriptions();
+        }
+    }
 
     public void HandleCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (_disposed) return;
-
-        switch (e.Action)
+        lock (_gate)
         {
-            case NotifyCollectionChangedAction.Add:
-                SubscribeItems(e.NewItems);
-                break;
+            if (_disposed) return;
 
-            case NotifyCollectionChangedAction.Remove:
-                UnsubscribeItems(e.OldItems);
-                break;
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    SubscribeItems(e.NewItems);
+                    break;
 
-            case NotifyCollectionChangedAction.Replace:
-                SubscribeItems(e.NewItems);
-                UnsubscribeItems(e.OldItems);
-                break;
+                case NotifyCollectionChangedAction.Remove:
+                    UnsubscribeItems(e.OldItems);
+                    break;
 
-            case NotifyCollectionChangedAction.Reset:
-                ResetSubscriptions();
-                break;
+                case NotifyCollectionChangedAction.Replace:
+                    SubscribeItems(e.NewItems);
+                    UnsubscribeItems(e.OldItems);
+                    break;
+
+                case NotifyCollectionChangedAction.Reset:
+                    ResetSubscriptions();
+                    break;
+            }
         }
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            DetachAll();
+        }
 
-        foreach (Subscription subscription in _subscriptions.Values)
-            Detach(subscription);
-
-        _subscriptions.Clear();
         ItemPropertyChanged = null;
+        DirectItemPropertyChanged = null;
     }
 
     private void OnItemPropertyChanged(Subscription subscription, PropertyChangedEventArgs e)
     {
         if (_disposed || !subscription.IsActive) return;
-        if (_canRaise != null && !_canRaise()) return;
 
-        EventHandler<CollectionItemPropertyChangedEventArgs<T>>? handlers = ItemPropertyChanged;
-        if (handlers == null) return;
+        EventHandler<CollectionItemPropertyChangedEventArgs<T>>? direct = DirectItemPropertyChanged;
+        bool raiseNotified = ItemPropertyChanged != null && (_canRaise == null || _canRaise());
+        if (direct == null && !raiseNotified) return;
 
         CollectionItemPropertyChangedEventArgs<T> args = new(subscription.Item, e);
+        direct?.Invoke(_eventOwner, args);
+
+        if (!raiseNotified) return;
+
         ICollectionEventDispatcher? dispatcher = _getDispatcher?.Invoke();
         if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
             dispatcher.Post(() =>
             {
                 if (_disposed || !subscription.IsActive) return;
-                if (_canRaise != null && !_canRaise()) return;
-                handlers.Invoke(_eventOwner, args);
+                ItemPropertyChanged?.Invoke(_eventOwner, args);
             });
             return;
         }
 
-        handlers.Invoke(_eventOwner, args);
+        ItemPropertyChanged?.Invoke(_eventOwner, args);
     }
 
     private void SubscribeItems(System.Collections.IList? items)
@@ -128,10 +216,9 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
             return;
         }
 
-        subscription = new Subscription(item, observable);
-        subscription.Handler = (_, e) => OnItemPropertyChanged(subscription, e);
-        _subscriptions.Add(key, subscription);
+        subscription = new Subscription(item, observable, OnItemPropertyChanged);
         observable.PropertyChanged += subscription.Handler;
+        _subscriptions.Add(key, subscription);
     }
 
     private void Unsubscribe(T item)
@@ -148,6 +235,14 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 
         _subscriptions.Remove(key);
         Detach(subscription);
+    }
+
+    private void DetachAll()
+    {
+        foreach (Subscription subscription in _subscriptions.Values)
+            Detach(subscription);
+
+        _subscriptions.Clear();
     }
 
     private void ResetSubscriptions()
@@ -181,8 +276,11 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
             Detach(pair.Value);
         }
 
-        foreach (PendingSubscription current in pending.Values)
-            Subscribe(current.Item);
+        foreach (KeyValuePair<object, PendingSubscription> pair in pending)
+        {
+            Subscribe(pair.Value.Item);
+            _subscriptions[pair.Key].Count = pair.Value.Count;
+        }
     }
 
     private static bool TryGetObservable(
@@ -209,15 +307,22 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
         subscription.Observable.PropertyChanged -= subscription.Handler;
     }
 
-    private sealed class Subscription(T item, INotifyPropertyChanged observable)
+    private sealed class Subscription
     {
         private int _isActive = 1;
 
-        public T Item { get; } = item;
+        public Subscription(T item, INotifyPropertyChanged observable, Action<Subscription, PropertyChangedEventArgs> callback)
+        {
+            Item = item;
+            Observable = observable;
+            Handler = (_, e) => callback(this, e);
+        }
 
-        public INotifyPropertyChanged Observable { get; } = observable;
+        public T Item { get; }
 
-        public PropertyChangedEventHandler Handler { get; set; } = null!;
+        public INotifyPropertyChanged Observable { get; }
+
+        public PropertyChangedEventHandler Handler { get; }
 
         public int Count { get; set; } = 1;
 

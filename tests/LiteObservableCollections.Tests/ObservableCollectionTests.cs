@@ -102,4 +102,69 @@ public class ObservableCollectionTests
         second.Name = "retained";
         Assert.Equal(1, raised);
     }
+
+    [Fact]
+    public void RemoveRange_Unsubscribes_The_Stored_Instance_For_Equal_Items()
+    {
+        EqualPerson first = new(1);
+        EqualPerson second = new(1);
+        ObservableCollection<EqualPerson> collection = new([first, second]);
+
+        int raised = 0;
+        collection.ItemPropertyChanged += (_, _) => raised++;
+
+        collection.RemoveRange([second]);
+
+        first.Name = "removed";
+        Assert.Equal(0, raised);
+
+        second.Name = "retained";
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Tracks_Clear_Reset_And_Move()
+    {
+        Person first = new();
+        Person second = new();
+        ObservableCollection<Person> collection = new([first, second]);
+
+        int raised = 0;
+        collection.ItemPropertyChanged += (_, _) => raised++;
+
+        collection.Move(0, 1);
+        first.Name = "Moved";
+        Assert.Equal(1, raised);
+
+        collection.Clear();
+        first.Name = "Cleared";
+        second.Name = "Cleared";
+        Assert.Equal(1, raised);
+
+        collection.Reset([second]);
+        first.Name = "Old";
+        second.Name = "Reset";
+        Assert.Equal(2, raised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Tracks_Range_Operations_When_Notifying_Each_Item()
+    {
+        ObservableCollection<Person> collection = new() { IsNotifyOnEachInRange = true };
+        Person first = new();
+        Person second = new();
+
+        int raised = 0;
+        collection.ItemPropertyChanged += (_, _) => raised++;
+
+        collection.AddRange([first, second]);
+        first.Name = "Ada";
+        second.Name = "Grace";
+        Assert.Equal(2, raised);
+
+        collection.RemoveRange([first]);
+        first.Name = "Old";
+        second.Name = "Jean";
+        Assert.Equal(3, raised);
+    }
 }
