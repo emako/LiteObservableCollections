@@ -8,12 +8,13 @@ namespace LiteObservableCollections.Internals;
 /// Maintains <see cref="INotifyPropertyChanged"/> subscriptions for items in a collection.
 /// </summary>
 /// <remarks>
-/// Subscription bookkeeping is synchronized internally. Enumerating the source collection (on construction and
-/// <see cref="Reset"/>) is not, so callers must not mutate the source concurrently with those operations.
+/// Not thread-safe: the owner must serialize construction, the mutation methods, <see cref="HandleCollectionChanged"/>,
+/// and <see cref="Dispose"/>. Item property changes may be raised on any thread concurrently with those calls.
 /// </remarks>
 internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 {
-    private readonly object _gate = new();
+    private static readonly bool CanObserveItems = !typeof(T).IsValueType;
+
     private readonly IEnumerable<T> _items;
     private readonly object _eventOwner;
     private readonly Func<bool>? _canRaise;
@@ -31,6 +32,8 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
         _eventOwner = eventOwner ?? throw new ArgumentNullException(nameof(eventOwner));
         _canRaise = canRaise;
         _getDispatcher = getDispatcher;
+
+        if (!CanObserveItems) return;
 
         try
         {
@@ -59,49 +62,40 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 
     public void Add(T item)
     {
-        lock (_gate)
-        {
-            if (_disposed) return;
-            Subscribe(item);
-        }
+        if (_disposed || !CanObserveItems) return;
+        Subscribe(item);
     }
 
     public void AddRange(IReadOnlyList<T> items, int startIndex)
     {
-        lock (_gate)
-        {
-            if (_disposed) return;
-            for (int i = startIndex; i < items.Count; i++)
-                Subscribe(items[i]);
-        }
+        if (_disposed || !CanObserveItems) return;
+        for (int i = startIndex; i < items.Count; i++)
+            Subscribe(items[i]);
     }
 
     public void Remove(T item)
     {
-        lock (_gate)
-        {
-            if (_disposed) return;
-            Unsubscribe(item);
-        }
+        if (_disposed || !CanObserveItems) return;
+        Unsubscribe(item);
     }
 
     public void Replace(T oldItem, T newItem)
     {
-        lock (_gate)
+        if (_disposed || !CanObserveItems) return;
+        try
         {
-            if (_disposed) return;
             Subscribe(newItem);
+        }
+        finally
+        {
             Unsubscribe(oldItem);
         }
     }
 
     public void Clear()
     {
-        lock (_gate)
-        {
-            if (_disposed) return;
-            DetachAll();
-        }
+        if (_disposed) return;
+        DetachAll();
     }
 
     /// <summary>
@@ -109,49 +103,46 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
     /// </summary>
     public void Reset()
     {
-        lock (_gate)
-        {
-            if (_disposed) return;
-            ResetSubscriptions();
-        }
+        if (_disposed || !CanObserveItems) return;
+        ResetSubscriptions();
     }
 
     public void HandleCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        lock (_gate)
+        if (_disposed || !CanObserveItems) return;
+
+        switch (e.Action)
         {
-            if (_disposed) return;
+            case NotifyCollectionChangedAction.Add:
+                SubscribeItems(e.NewItems);
+                break;
 
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
+            case NotifyCollectionChangedAction.Remove:
+                UnsubscribeItems(e.OldItems);
+                break;
+
+            case NotifyCollectionChangedAction.Replace:
+                try
+                {
                     SubscribeItems(e.NewItems);
-                    break;
-
-                case NotifyCollectionChangedAction.Remove:
+                }
+                finally
+                {
                     UnsubscribeItems(e.OldItems);
-                    break;
+                }
+                break;
 
-                case NotifyCollectionChangedAction.Replace:
-                    SubscribeItems(e.NewItems);
-                    UnsubscribeItems(e.OldItems);
-                    break;
-
-                case NotifyCollectionChangedAction.Reset:
-                    ResetSubscriptions();
-                    break;
-            }
+            case NotifyCollectionChangedAction.Reset:
+                ResetSubscriptions();
+                break;
         }
     }
 
     public void Dispose()
     {
-        lock (_gate)
-        {
-            if (_disposed) return;
-            _disposed = true;
-            DetachAll();
-        }
+        if (_disposed) return;
+        _disposed = true;
+        DetachAll();
 
         ItemPropertyChanged = null;
         DirectItemPropertyChanged = null;
@@ -166,22 +157,42 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
         if (direct == null && !raiseNotified) return;
 
         ItemPropertyChangedEventArgs<T> args = new(subscription.Item, e);
-        direct?.Invoke(_eventOwner, args);
+        try
+        {
+            direct?.Invoke(_eventOwner, args);
+        }
+        finally
+        {
+            if (raiseNotified)
+                RaiseItemPropertyChanged(subscription, args);
+        }
+    }
 
-        if (!raiseNotified) return;
-
+    private void RaiseItemPropertyChanged(Subscription subscription, ItemPropertyChangedEventArgs<T> args)
+    {
         ICollectionEventDispatcher? dispatcher = _getDispatcher?.Invoke();
         if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            dispatcher.Post(() =>
-            {
-                if (_disposed || !subscription.IsActive) return;
-                ItemPropertyChanged?.Invoke(_eventOwner, args);
-            });
+            PostItemPropertyChanged(dispatcher, subscription, args);
             return;
         }
 
         ItemPropertyChanged?.Invoke(_eventOwner, args);
+    }
+
+    /// <remarks>
+    /// Kept separate from <see cref="RaiseItemPropertyChanged"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostItemPropertyChanged(
+        ICollectionEventDispatcher dispatcher,
+        Subscription subscription,
+        ItemPropertyChangedEventArgs<T> args)
+    {
+        dispatcher.Post(() =>
+        {
+            if (_disposed || !subscription.IsActive) return;
+            ItemPropertyChanged?.Invoke(_eventOwner, args);
+        });
     }
 
     private void SubscribeItems(System.Collections.IList? items)
@@ -215,9 +226,7 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
             return;
         }
 
-        subscription = new Subscription(item, observable, OnItemPropertyChanged);
-        observable.PropertyChanged += subscription.Handler;
-        _subscriptions.Add(key, subscription);
+        Attach(key, item, observable, count: 1);
     }
 
     private void Unsubscribe(T item)
@@ -236,6 +245,13 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
         Detach(subscription);
     }
 
+    private void Attach(object key, T item, INotifyPropertyChanged observable, int count)
+    {
+        Subscription subscription = new(this, item, observable) { Count = count };
+        observable.PropertyChanged += subscription.Handler;
+        _subscriptions.Add(key, subscription);
+    }
+
     private void DetachAll()
     {
         foreach (Subscription subscription in _subscriptions.Values)
@@ -246,27 +262,21 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 
     private void ResetSubscriptions()
     {
-        Dictionary<object, PendingSubscription> pending = [with(ReferenceComparer.Instance)];
+        Dictionary<object, int> pending = new(_items is ICollection<T> collection ? collection.Count : 0, ReferenceComparer.Instance);
         foreach (T item in _items)
         {
             if (!TryGetObservable(item, out object key, out _))
                 continue;
 
-            if (pending.TryGetValue(key, out PendingSubscription? existing))
-            {
-                existing.Count++;
-            }
-            else
-            {
-                pending.Add(key, new PendingSubscription(item));
-            }
+            pending.TryGetValue(key, out int count);
+            pending[key] = count + 1;
         }
 
         foreach (KeyValuePair<object, Subscription> pair in _subscriptions.ToArray())
         {
-            if (pending.TryGetValue(pair.Key, out PendingSubscription? current))
+            if (pending.TryGetValue(pair.Key, out int count))
             {
-                pair.Value.Count = current.Count;
+                pair.Value.Count = count;
                 pending.Remove(pair.Key);
                 continue;
             }
@@ -275,11 +285,8 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
             Detach(pair.Value);
         }
 
-        foreach (KeyValuePair<object, PendingSubscription> pair in pending)
-        {
-            Subscribe(pair.Value.Item);
-            _subscriptions[pair.Key].Count = pair.Value.Count;
-        }
+        foreach (KeyValuePair<object, int> pair in pending)
+            Attach(pair.Key, (T)pair.Key, (INotifyPropertyChanged)pair.Key, pair.Value);
     }
 
     private static bool TryGetObservable(
@@ -308,13 +315,15 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 
     private sealed class Subscription
     {
+        private readonly CollectionItemPropertyChangeNotifier<T> _owner;
         private int _isActive = 1;
 
-        public Subscription(T item, INotifyPropertyChanged observable, Action<Subscription, PropertyChangedEventArgs> callback)
+        public Subscription(CollectionItemPropertyChangeNotifier<T> owner, T item, INotifyPropertyChanged observable)
         {
+            _owner = owner;
             Item = item;
             Observable = observable;
-            Handler = (_, e) => callback(this, e);
+            Handler = OnPropertyChanged;
         }
 
         public T Item { get; }
@@ -323,18 +332,13 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
 
         public PropertyChangedEventHandler Handler { get; }
 
-        public int Count { get; set; } = 1;
+        public int Count { get; set; }
 
         public bool IsActive => Volatile.Read(ref _isActive) != 0;
 
         public void Deactivate() => Volatile.Write(ref _isActive, 0);
-    }
 
-    private sealed class PendingSubscription(T item)
-    {
-        public T Item { get; } = item;
-
-        public int Count { get; set; } = 1;
+        private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e) => _owner.OnItemPropertyChanged(this, e);
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<object>

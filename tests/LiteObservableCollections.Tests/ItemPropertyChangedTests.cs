@@ -9,10 +9,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Raises_When_Item_Property_Changes()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -34,10 +31,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Sender_Is_Collection_For_ObservableCollection()
     {
-        ObservableCollection<Person> collection = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<Person> collection = new();
         Person person = new();
         collection.Add(person);
 
@@ -52,10 +46,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Does_Not_Throw_When_Collection_Contains_Null()
     {
-        ObservableList<Person?> list = new([null, new Person()])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person?> list = new([null, new Person()]);
         int raised = 0;
 
         list.ItemPropertyChanged += (_, _) => raised++;
@@ -67,10 +58,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Keeps_Subscriptions_When_IsNotifyEnabled_Is_False()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person existing = new();
         list.Add(existing);
 
@@ -94,10 +82,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Is_Suppressed_When_IsNotifyEnabled_Is_False()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -116,10 +101,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Uses_EventDispatcher_When_Not_Current_Context()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -140,10 +122,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Drops_Queued_Event_When_Item_Is_Removed()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -164,10 +143,7 @@ public class ItemPropertyChangedTests
     public void ItemPropertyChanged_Keeps_Queued_Event_When_Replaced_With_Same_Instance()
     {
         Person person = new();
-        ObservableList<Person> list = new([person])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new([person]);
 
         RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
         list.EventDispatcher = dispatcher;
@@ -185,10 +161,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Checks_IsNotifyEnabled_When_Item_Changes_Like_CollectionChanged()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -214,10 +187,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Queued_Event_Uses_Handlers_Attached_At_Delivery()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -247,10 +217,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Unsubscribes_After_Remove()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -266,10 +233,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Handles_Duplicate_References()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
         list.Add(person);
@@ -292,10 +256,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Tracks_Replace_And_Reset()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person first = new();
         Person second = new();
         list.Add(first);
@@ -322,10 +283,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Recreates_Subscriptions_After_Last_Handler_Removed()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         Person person = new();
         list.Add(person);
 
@@ -354,10 +312,7 @@ public class ItemPropertyChangedTests
     {
         EqualPerson first = new(1);
         EqualPerson second = new(1);
-        ObservableList<EqualPerson> list = new([first, second])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<EqualPerson> list = new([first, second]);
 
         object? removedItem = null;
         list.CollectionChanged += (_, e) => removedItem = e.OldItems?[0];
@@ -379,10 +334,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Allows_Value_Type_Items_And_Ignores_Them()
     {
-        ObservableList<int> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<int> list = new();
         int raised = 0;
 
         Exception? exception = Record.Exception(() => list.ItemPropertyChanged += (_, _) => raised++);
@@ -395,10 +347,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Observes_Runtime_Type_Through_Object_Collection()
     {
-        ObservableList<object> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<object> list = new();
         Person person = new();
 
         int raised = 0;
@@ -418,10 +367,7 @@ public class ItemPropertyChangedTests
     public void ItemPropertyChanged_Does_Not_Require_Item_As_PropertyChanged_Sender()
     {
         NonStandardNotifyItem item = new();
-        ObservableList<NonStandardNotifyItem> list = new([item])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<NonStandardNotifyItem> list = new([item]);
 
         int raised = 0;
         list.ItemPropertyChanged += (_, e) =>
@@ -439,10 +385,7 @@ public class ItemPropertyChangedTests
     public void Reset_With_Same_Items_Does_Not_Reattach_PropertyChanged_Handlers()
     {
         CountingNotifyItem item = new();
-        ObservableList<CountingNotifyItem> list = new([item])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<CountingNotifyItem> list = new([item]);
 
         int raised = 0;
         void Handler(object? _, ItemPropertyChangedEventArgs<CountingNotifyItem> e) => raised++;
@@ -465,10 +408,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void ItemPropertyChanged_Does_Not_Fire_For_Collection_Structural_Changes()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         int itemRaised = 0;
         List<NotifyCollectionChangedEventArgs> collectionEvents = CollectionChangeRecorder.Attach(list);
 
@@ -484,14 +424,8 @@ public class ItemPropertyChangedTests
     public void Collection_Interfaces_Expose_ItemPropertyChanged()
     {
         Person person = new();
-        ObservableList<Person> list = new([person])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
-        ObservableCollection<Person> collection = new([person])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new([person]);
+        ObservableCollection<Person> collection = new([person]);
         IObservableList<Person> listObservable = list;
         IObservableCollection<Person> collectionObservable = collection;
 
@@ -508,10 +442,7 @@ public class ItemPropertyChangedTests
     [Fact]
     public void Reset_Counts_Duplicate_New_Items()
     {
-        ObservableList<Person> list = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> list = new();
         int raised = 0;
         list.ItemPropertyChanged += (_, _) => raised++;
 
@@ -532,10 +463,7 @@ public class ItemPropertyChangedTests
     {
         CountingNotifyItem first = new();
         CountingNotifyItem second = new();
-        ObservableList<CountingNotifyItem> list = new([first, second, first])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<CountingNotifyItem> list = new([first, second, first]);
 
         int raised = 0;
         list.ItemPropertyChanged += (_, _) => raised++;
@@ -554,10 +482,7 @@ public class ItemPropertyChangedTests
     {
         CountingNotifyItem first = new();
         CountingNotifyItem second = new();
-        ObservableList<CountingNotifyItem> list = new([first, second])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<CountingNotifyItem> list = new([first, second]);
 
         int raised = 0;
         list.ItemPropertyChanged += (_, _) => raised++;
@@ -577,10 +502,7 @@ public class ItemPropertyChangedTests
     {
         EqualPerson first = new(1);
         EqualPerson second = new(1);
-        ObservableList<EqualPerson> list = new([first, second])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<EqualPerson> list = new([first, second]);
 
         int raised = 0;
         list.ItemPropertyChanged += (_, _) => raised++;
@@ -599,10 +521,7 @@ public class ItemPropertyChangedTests
     {
         CountingNotifyItem existing = new();
         CountingNotifyItem added = new();
-        ObservableList<CountingNotifyItem> list = new([existing])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<CountingNotifyItem> list = new([existing]);
 
         int raised = 0;
         list.ItemPropertyChanged += (_, _) => raised++;
@@ -620,10 +539,7 @@ public class ItemPropertyChangedTests
     public void Failed_Item_Subscription_Does_Not_Leave_Partial_Subscriptions()
     {
         CountingNotifyItem good = new();
-        ObservableList<INotifyPropertyChanged> list = new([good, new ThrowingNotifyItem()])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<INotifyPropertyChanged> list = new([good, new ThrowingNotifyItem()]);
 
         int raised = 0;
         Assert.Throws<InvalidOperationException>(() => list.ItemPropertyChanged += (_, _) => raised++);
@@ -639,40 +555,200 @@ public class ItemPropertyChangedTests
     }
 
     [Fact]
-    public void AddRange_Does_Not_Rescan_Existing_Items()
+    public void AddRange_Does_Not_Reattach_Existing_Items()
     {
-        ObservableList<Person> list = [.. Enumerable.Range(0, 100_000).Select(_ => new Person())];
-        list.IsItemPropertyChangedEnabled = true;
+        CountingNotifyItem[] existing = [.. Enumerable.Range(0, 100).Select(_ => new CountingNotifyItem())];
+        ObservableList<CountingNotifyItem> list = new(existing);
         list.ItemPropertyChanged += (_, _) => { };
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        for (int i = 0; i < 1_000; i++)
-            list.AddRange([new Person()]);
-        stopwatch.Stop();
+        for (int i = 0; i < 100; i++)
+            list.AddRange([new CountingNotifyItem()]);
 
-        Assert.True(stopwatch.ElapsedMilliseconds < 2_000, $"AddRange took {stopwatch.ElapsedMilliseconds} ms.");
+        Assert.All(existing, item =>
+        {
+            Assert.Equal(1, item.AddedHandlers);
+            Assert.Equal(0, item.RemovedHandlers);
+        });
     }
 
     [Fact]
-    public void ItemPropertyChanged_Is_Off_By_Default_Until_Enabled()
+    public void AddRange_Cost_Does_Not_Grow_With_Existing_Item_Count()
+    {
+        TimeSpan small = MeasureAddRange(existingCount: 100);
+        TimeSpan large = MeasureAddRange(existingCount: 100_000);
+
+        double limit = Math.Max(200, small.TotalMilliseconds * 20);
+        Assert.True(large.TotalMilliseconds < limit, $"AddRange took {large.TotalMilliseconds} ms with 100k items vs {small.TotalMilliseconds} ms with 100.");
+
+        static TimeSpan MeasureAddRange(int existingCount)
+        {
+            ObservableList<Person> list = [.. Enumerable.Range(0, existingCount).Select(_ => new Person())];
+            list.ItemPropertyChanged += (_, _) => { };
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            for (int i = 0; i < 1_000; i++)
+                list.AddRange([new Person()]);
+            return stopwatch.Elapsed;
+        }
+    }
+
+    [Fact]
+    public void Items_Are_Subscribed_Only_While_Handlers_Are_Attached()
     {
         CountingNotifyItem item = new();
         ObservableList<CountingNotifyItem> list = new([item]);
-        int raised = 0;
-        list.ItemPropertyChanged += (_, _) => raised++;
-
-        item.Raise("Value");
-        Assert.Equal(0, raised);
         Assert.Equal(0, item.AddedHandlers);
 
-        list.IsItemPropertyChangedEnabled = true;
+        int raised = 0;
+        void Handler(object? _, ItemPropertyChangedEventArgs<CountingNotifyItem> e) => raised++;
+
+        list.ItemPropertyChanged += Handler;
         Assert.Equal(1, item.AddedHandlers);
         item.Raise("Value");
         Assert.Equal(1, raised);
 
-        list.IsItemPropertyChangedEnabled = false;
+        list.ItemPropertyChanged -= Handler;
+        Assert.Equal(1, item.RemovedHandlers);
         item.Raise("Value");
         Assert.Equal(1, raised);
-        Assert.Equal(1, item.RemovedHandlers);
     }
+
+    [Fact]
+    public void Interface_Consumers_Receive_ItemPropertyChanged_Without_Extra_Configuration()
+    {
+        Person person = new();
+        IObservableList<Person> list = new ObservableList<Person>([person]);
+        IObservableCollection<Person> collection = new ObservableCollection<Person>([person]);
+
+        int listRaised = 0;
+        int collectionRaised = 0;
+        list.ItemPropertyChanged += (_, _) => listRaised++;
+        collection.ItemPropertyChanged += (_, _) => collectionRaised++;
+        person.Name = "Ada";
+
+        Assert.Equal(1, listRaised);
+        Assert.Equal(1, collectionRaised);
+    }
+
+    [Fact]
+    public void ItemPropertyChanged_Drops_Queued_Event_When_Item_Is_Removed_And_Added_Again()
+    {
+        Person person = new();
+        ObservableList<Person> list = new([person]);
+        RecordingEventDispatcher dispatcher = new(isCurrentContext: false);
+        list.EventDispatcher = dispatcher;
+
+        int raised = 0;
+        list.ItemPropertyChanged += (_, _) => raised++;
+
+        person.Name = "Ada";
+        list.Remove(person);
+        list.Add(person);
+        dispatcher.Flush();
+        Assert.Equal(0, raised);
+
+        person.Name = "Grace";
+        dispatcher.Flush();
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void Mutation_Is_Notified_When_Item_Subscription_Throws()
+    {
+        ObservableList<INotifyPropertyChanged> list = new();
+        list.ItemPropertyChanged += (_, _) => { };
+        List<NotifyCollectionChangedEventArgs> collectionEvents = CollectionChangeRecorder.Attach(list);
+        List<string?> propertyNames = [];
+        list.PropertyChanged += (_, e) => propertyNames.Add(e.PropertyName);
+
+        Assert.Throws<InvalidOperationException>(() => list.Add(new ThrowingNotifyItem()));
+
+        Assert.Single(list);
+        Assert.Equal(NotifyCollectionChangedAction.Add, Assert.Single(collectionEvents).Action);
+        Assert.Equal(["Count", "Item[]"], propertyNames);
+    }
+
+    [Fact]
+    public void Replace_Unsubscribes_Old_Item_When_New_Item_Subscription_Throws()
+    {
+        CountingNotifyItem oldItem = new();
+        ObservableCollection<INotifyPropertyChanged> collection = new([oldItem]);
+        int raised = 0;
+        collection.ItemPropertyChanged += (_, _) => raised++;
+        List<NotifyCollectionChangedEventArgs> collectionEvents = CollectionChangeRecorder.Attach(collection);
+
+        Assert.Throws<InvalidOperationException>(() => collection[0] = new ThrowingNotifyItem());
+
+        Assert.Equal(1, oldItem.RemovedHandlers);
+        oldItem.Raise("Value");
+        Assert.Equal(0, raised);
+        Assert.Equal(NotifyCollectionChangedAction.Replace, Assert.Single(collectionEvents).Action);
+    }
+
+#if NET
+    [Fact]
+    public void Mutations_Do_Not_Allocate_Without_Subscribers()
+    {
+        Person[] people = [.. Enumerable.Range(0, 100).Select(_ => new Person())];
+        ObservableList<Person> list = new(new List<Person>(people.Length));
+        ObservableCollection<Person> collection = new();
+        AddAndRemoveAll(list, people);
+        AddAndRemoveAll(collection, people);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        AddAndRemoveAll(list, people);
+        AddAndRemoveAll(collection, people);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
+
+        static void AddAndRemoveAll(IList<Person> target, Person[] items)
+        {
+            foreach (Person item in items)
+                target.Add(item);
+            for (int i = target.Count - 1; i >= 0; i--)
+                target.RemoveAt(i);
+        }
+    }
+
+    [Fact]
+    public void Value_Type_Items_Are_Not_Boxed_While_Handlers_Are_Attached()
+    {
+        ObservableList<int> list = new(new List<int>(200));
+        list.ItemPropertyChanged += (_, _) => { };
+        AddAndRemoveAll(list);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        AddAndRemoveAll(list);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
+
+        static void AddAndRemoveAll(ObservableList<int> target)
+        {
+            for (int i = 0; i < 100; i++)
+                target.Add(i);
+            for (int i = target.Count - 1; i >= 0; i--)
+                target.RemoveAt(i);
+        }
+    }
+
+    [Fact]
+    public void Synchronous_Item_Property_Change_Allocates_Only_Event_Args()
+    {
+        CountingNotifyItem item = new();
+        ObservableList<CountingNotifyItem> list = new([item]);
+        list.ItemPropertyChanged += (_, _) => { };
+        PropertyChangedEventArgs args = new("Value");
+        item.Raise(args);
+
+        const int Iterations = 100;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < Iterations; i++)
+            item.Raise(args);
+        long allocatedPerEvent = (GC.GetAllocatedBytesForCurrentThread() - before) / Iterations;
+
+        Assert.True(allocatedPerEvent <= 32, $"Each item property change allocated {allocatedPerEvent} bytes.");
+    }
+#endif
 }

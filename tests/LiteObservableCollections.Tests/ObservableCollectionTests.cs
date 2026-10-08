@@ -20,10 +20,7 @@ public class ObservableCollectionTests
     [Fact]
     public void ItemPropertyChanged_Works_Across_AddRange_And_RemoveRange()
     {
-        ObservableCollection<Person> collection = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<Person> collection = new();
         Person a = new();
         Person b = new();
 
@@ -46,10 +43,7 @@ public class ObservableCollectionTests
     [Fact]
     public void IsNotifyEnabled_Still_Tracks_Item_Subscriptions()
     {
-        ObservableCollection<Person> collection = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<Person> collection = new();
         int raised = 0;
         collection.ItemPropertyChanged += (_, _) => raised++;
 
@@ -65,10 +59,7 @@ public class ObservableCollectionTests
     [Fact]
     public void Replace_Indexer_Updates_Item_Subscriptions()
     {
-        ObservableCollection<Person> collection = new()
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<Person> collection = new();
         Person oldItem = new();
         Person newItem = new();
         collection.Add(oldItem);
@@ -93,10 +84,7 @@ public class ObservableCollectionTests
     {
         EqualPerson first = new(1);
         EqualPerson second = new(1);
-        ObservableCollection<EqualPerson> collection = new([first, second])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<EqualPerson> collection = new([first, second]);
 
         object? removedItem = null;
         collection.CollectionChanged += (_, e) => removedItem = e.OldItems?[0];
@@ -120,10 +108,7 @@ public class ObservableCollectionTests
     {
         EqualPerson first = new(1);
         EqualPerson second = new(1);
-        ObservableCollection<EqualPerson> collection = new([first, second])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<EqualPerson> collection = new([first, second]);
 
         int raised = 0;
         collection.ItemPropertyChanged += (_, _) => raised++;
@@ -142,10 +127,7 @@ public class ObservableCollectionTests
     {
         Person first = new();
         Person second = new();
-        ObservableCollection<Person> collection = new([first, second])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableCollection<Person> collection = new([first, second]);
 
         int raised = 0;
         collection.ItemPropertyChanged += (_, _) => raised++;
@@ -171,7 +153,6 @@ public class ObservableCollectionTests
         ObservableCollection<Person> collection = new()
         {
             IsNotifyOnEachInRange = true,
-            IsItemPropertyChangedEnabled = true,
         };
         Person first = new();
         Person second = new();

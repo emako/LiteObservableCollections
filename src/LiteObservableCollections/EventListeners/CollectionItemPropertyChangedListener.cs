@@ -18,6 +18,7 @@ namespace LiteObservableCollections.EventListeners;
 /// </remarks>
 public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObservable<T>, IDisposable
 {
+    private readonly object _gate = new();
     private readonly INotifyCollectionChanged _source;
     private readonly IDirectItemPropertyChangeSource<T>? _directSource;
     private readonly CollectionItemPropertyChangeNotifier<T>? _notifier;
@@ -66,26 +67,28 @@ public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObse
     /// </summary>
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _notifier?.Dispose();
+        }
 
         if (_directSource != null)
-        {
             _directSource.RemoveDirectItemPropertyChangedHandler(OnItemPropertyChanged);
-        }
         else
-        {
             _source.CollectionChanged -= OnCollectionChanged;
-            _notifier!.Dispose();
-        }
 
         GC.SuppressFinalize(this);
     }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (!_disposed)
-            _notifier!.HandleCollectionChanged(e);
+        lock (_gate)
+        {
+            if (!_disposed)
+                _notifier!.HandleCollectionChanged(e);
+        }
     }
 
     private void OnItemPropertyChanged(object? sender, ItemPropertyChangedEventArgs<T> e)

@@ -70,7 +70,10 @@ internal sealed class CountingNotifyItem : INotifyPropertyChanged
     }
 
     public void Raise(string propertyName)
-        => _propertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        => Raise(new PropertyChangedEventArgs(propertyName));
+
+    public void Raise(PropertyChangedEventArgs args)
+        => _propertyChanged?.Invoke(this, args);
 }
 
 internal sealed class ThrowingNotifyItem : INotifyPropertyChanged

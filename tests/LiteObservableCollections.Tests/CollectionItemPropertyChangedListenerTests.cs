@@ -131,10 +131,7 @@ public class CollectionItemPropertyChangedListenerTests
     public void Listener_Does_Not_Affect_Collection_ItemPropertyChanged_Gating()
     {
         Person person = new();
-        ObservableList<Person> source = new([person])
-        {
-            IsItemPropertyChangedEnabled = true,
-        };
+        ObservableList<Person> source = new([person]);
         using CollectionItemPropertyChangedListener<Person> listener = new(source);
 
         int listenerRaised = 0;
@@ -147,6 +144,21 @@ public class CollectionItemPropertyChangedListenerTests
 
         Assert.Equal(1, listenerRaised);
         Assert.Equal(0, collectionRaised);
+    }
+
+    [Fact]
+    public void Listener_Handler_Exception_Does_Not_Suppress_Collection_ItemPropertyChanged()
+    {
+        Person person = new();
+        ObservableList<Person> source = new([person]);
+        int collectionRaised = 0;
+        source.ItemPropertyChanged += (_, _) => collectionRaised++;
+        using CollectionItemPropertyChangedListener<Person> listener = new(source);
+        listener.ItemPropertyChanged += (_, _) => throw new InvalidOperationException("Listener failure.");
+
+        Assert.Throws<InvalidOperationException>(() => person.Name = "Ada");
+
+        Assert.Equal(1, collectionRaised);
     }
 
     [Fact]

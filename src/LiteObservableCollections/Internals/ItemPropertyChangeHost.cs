@@ -2,40 +2,32 @@ namespace LiteObservableCollections.Internals;
 
 /// <summary>
 /// Hosts item-level property change notifications for a list-backed observable collection.
-/// Public <c>ItemPropertyChanged</c> subscriptions exist only while that feature is enabled and at least one
-/// handler is attached. Direct listeners opt in independently.
+/// Items are subscribed only while at least one public or direct handler is attached.
 /// </summary>
 /// <remarks>
-/// Adding and removing handlers is thread-safe. The mutation hooks must be called by the owner right after it
-/// mutates <c>items</c>, so subscriptions stay synchronized even when outward notifications are suppressed.
+/// Adding and removing handlers may run concurrently with each other, but not with mutations of <c>items</c>.
+/// The mutation hooks must be called by the owner right after it mutates <c>items</c>, so subscriptions stay
+/// synchronized even when outward notifications are suppressed.
 /// </remarks>
 internal sealed class ItemPropertyChangeHost<T>(
     List<T> items,
     object eventOwner,
     Func<bool> canRaise,
-    Func<ICollectionEventDispatcher?> getDispatcher,
-    Func<bool> isItemPropertyChangedEnabled)
+    Func<ICollectionEventDispatcher?> getDispatcher)
 {
     private readonly object _gate = new();
     private volatile CollectionItemPropertyChangeNotifier<T>? _notifier;
     private EventHandler<ItemPropertyChangedEventArgs<T>>? _handlers;
-    private bool _listening;
 
     public void AddHandler(EventHandler<ItemPropertyChangedEventArgs<T>> handler)
     {
         lock (_gate)
         {
+            CollectionItemPropertyChangeNotifier<T> notifier = EnsureNotifier();
+            if (_handlers == null)
+                notifier.ItemPropertyChanged += ForwardItemPropertyChanged;
+
             _handlers += handler;
-            try
-            {
-                if (isItemPropertyChangedEnabled())
-                    AttachPublicListener();
-            }
-            catch
-            {
-                _handlers -= handler;
-                throw;
-            }
         }
     }
 
@@ -43,20 +35,13 @@ internal sealed class ItemPropertyChangeHost<T>(
     {
         lock (_gate)
         {
-            _handlers -= handler;
-            if (_handlers == null)
-                DetachPublicListener();
-        }
-    }
+            if (_handlers == null) return;
 
-    public void OnItemPropertyChangedEnabledChanged()
-    {
-        lock (_gate)
-        {
-            if (isItemPropertyChangedEnabled())
-                AttachPublicListener();
-            else
-                DetachPublicListener();
+            _handlers -= handler;
+            if (_handlers != null) return;
+
+            _notifier!.ItemPropertyChanged -= ForwardItemPropertyChanged;
+            ReleaseNotifierIfUnused();
         }
     }
 
@@ -87,23 +72,6 @@ internal sealed class ItemPropertyChangeHost<T>(
     public void OnCleared() => _notifier?.Clear();
 
     public void OnReset() => _notifier?.Reset();
-
-    private void AttachPublicListener()
-    {
-        if (_listening || _handlers == null) return;
-
-        EnsureNotifier().ItemPropertyChanged += ForwardItemPropertyChanged;
-        _listening = true;
-    }
-
-    private void DetachPublicListener()
-    {
-        if (!_listening) return;
-
-        _notifier!.ItemPropertyChanged -= ForwardItemPropertyChanged;
-        _listening = false;
-        ReleaseNotifierIfUnused();
-    }
 
     private void ForwardItemPropertyChanged(object? sender, ItemPropertyChangedEventArgs<T> e)
         => _handlers?.Invoke(sender, e);

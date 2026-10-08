@@ -9,18 +9,16 @@ public class ItemPropertyChangedConcurrencyTests
     {
         int lost = 0;
         int ghost = 0;
+        using ConcurrentRunner runner = new();
 
         for (int i = 0; i < Iterations; i++)
         {
             Person person = new();
-            ObservableList<Person> list = new([person])
-            {
-                IsItemPropertyChangedEnabled = true,
-            };
+            ObservableList<Person> list = new([person]);
             int first = 0;
             int second = 0;
 
-            RunConcurrently(
+            runner.Run(
                 () => list.ItemPropertyChanged += (_, _) => first++,
                 () => list.ItemPropertyChanged += (_, _) => second++);
 
@@ -40,19 +38,17 @@ public class ItemPropertyChangedConcurrencyTests
     public void Removing_Last_Handler_Concurrently_With_Adding_Does_Not_Lose_Handler()
     {
         int lost = 0;
+        using ConcurrentRunner runner = new();
 
         for (int i = 0; i < Iterations; i++)
         {
             Person person = new();
-            ObservableList<Person> list = new([person])
-            {
-                IsItemPropertyChangedEnabled = true
-            };
+            ObservableList<Person> list = new([person]);
             EventHandler<ItemPropertyChangedEventArgs<Person>> existing = (_, _) => { };
             list.ItemPropertyChanged += existing;
             int added = 0;
 
-            RunConcurrently(
+            runner.Run(
                 () => list.ItemPropertyChanged -= existing,
                 () => list.ItemPropertyChanged += (_, _) => added++);
 
@@ -63,15 +59,70 @@ public class ItemPropertyChangedConcurrencyTests
         Assert.Equal(0, lost);
     }
 
-    private static void RunConcurrently(Action first, Action second)
+    /// <summary>
+    /// Runs two actions concurrently on two long-lived worker threads, one pair per <see cref="Run"/> call.
+    /// </summary>
+    private sealed class ConcurrentRunner : IDisposable
     {
-        using ManualResetEventSlim start = new();
-        Thread firstThread = new(() => { start.Wait(); first(); });
-        Thread secondThread = new(() => { start.Wait(); second(); });
-        firstThread.Start();
-        secondThread.Start();
-        start.Set();
-        firstThread.Join();
-        secondThread.Join();
+        private readonly Barrier _barrier = new(3);
+        private readonly Thread[] _workers;
+        private Action? _first;
+        private Action? _second;
+        private Exception? _failure;
+        private volatile bool _stopping;
+
+        public ConcurrentRunner()
+        {
+            _workers = [StartWorker(() => _first), StartWorker(() => _second)];
+        }
+
+        public void Run(Action first, Action second)
+        {
+            _first = first;
+            _second = second;
+            _barrier.SignalAndWait();
+            _barrier.SignalAndWait();
+
+            Exception? failure = Interlocked.Exchange(ref _failure, null);
+            if (failure != null)
+                throw new InvalidOperationException("A concurrent action failed.", failure);
+        }
+
+        public void Dispose()
+        {
+            _stopping = true;
+            _barrier.SignalAndWait();
+            foreach (Thread worker in _workers)
+                worker.Join();
+            _barrier.Dispose();
+        }
+
+        private Thread StartWorker(Func<Action?> getAction)
+        {
+            Thread thread = new(() =>
+            {
+                while (true)
+                {
+                    _barrier.SignalAndWait();
+                    if (_stopping) return;
+
+                    try
+                    {
+                        getAction()!();
+                    }
+                    catch (Exception e)
+                    {
+                        Interlocked.CompareExchange(ref _failure, e, null);
+                    }
+
+                    _barrier.SignalAndWait();
+                }
+            })
+            {
+                IsBackground = true,
+            };
+            thread.Start();
+            return thread;
+        }
     }
 }
