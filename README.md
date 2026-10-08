@@ -9,6 +9,7 @@ Lite version of ObservableCollections with fewer features but better performance
 - Lightweight observable list and collection implementations.
 - Implements `INotifyCollectionChanged` and `INotifyPropertyChanged`.
 - Supports batch addition via `AddRange`.
+- Built-in `ItemPropertyChanged` on `ObservableList<T>` / `ObservableCollection<T>` (also via `IObservableList<T>` / `IObservableCollection<T>`). Items are only listened to while a handler is attached.
 - **ObservableViewList**: reactive view over `ObservableList<T>` with filter, sort, and optional projection; filter/sort are persisted across source updates.
 
 ## Usage
@@ -35,7 +36,7 @@ var collection = new ObservableCollection<string>();
 collection.CollectionChanged += (s, e) => Console.WriteLine($"Action: {e.Action}");
 collection.Add("A");
 collection.Add("B");
-collection.AddRange(new[] { "C", "D" }); // AddRange triggers a single Add event with all new items
+collection.AddRange(new[] { "C", "D" }); // AddRange triggers a Reset event
 Console.WriteLine(string.Join(", ", collection)); // Output: A, B, C, D
 ```
 
@@ -90,7 +91,7 @@ view.AttachFilter(x => x >= 2);
 
 ### EventListeners
 
-`ObservableList<T>` raises collection-level notifications only. To react to a property change on an item, the item must implement `INotifyPropertyChanged`. You can inherit from `ObservableObject` to implement the standard notification pattern:
+`ObservableList<T>` raises collection-level notifications (`CollectionChanged` / list `PropertyChanged`). To react to a property change on an item, the item must implement `INotifyPropertyChanged`; you can then use `ItemPropertyChanged` on `ObservableList<T>` / `ObservableCollection<T>` (also via `IObservableList<T>` / `IObservableCollection<T>`), or `CollectionItemPropertyChangedListener<T>` for arbitrary sources. You can inherit from `ObservableObject` to implement the standard notification pattern:
 
 ```csharp
 using LiteObservableCollections.ComponentModel;
@@ -131,22 +132,30 @@ listener.RegisterHandler(() => person.Name, (_, _) =>
     Console.WriteLine("Name changed"));
 ```
 
-To observe property changes from every item in an `ObservableList<T>` or `ObservableCollection<T>`, use `CollectionItemPropertyChangedListener<T>`. It automatically tracks adds, removes, replacements, resets, and duplicate references in the source collection.
+To observe property changes from items in an `ObservableList<T>` or `ObservableCollection<T>`, subscribe to `ItemPropertyChanged` directly. Reference-type items that implement `INotifyPropertyChanged` are observed; other items are ignored:
 
 ```csharp
 using LiteObservableCollections;
-using LiteObservableCollections.EventListeners;
 
 var people = new ObservableList<Person>();
-using var itemListener = new CollectionItemPropertyChangedListener<Person>(people);
 
-itemListener.ItemPropertyChanged += (_, e) =>
-    Console.WriteLine($"{e.Item.Name}.{e.PropertyChangedEventArgs.PropertyName} changed");
+people.ItemPropertyChanged += (sender, e) =>
+    Console.WriteLine($"{e.Item.Name}.{e.PropertyName} changed");
 
 var person = new Person();
 people.Add(person);
 person.Name = "Ada";
 ```
+
+`ItemPropertyChanged` is raised only when an item's property changes. The event `sender` is the collection. Like `CollectionChanged`, it respects `IsNotifyEnabled` and is marshalled through `EventDispatcher` when set; a marshalled event is dropped if the item was removed before delivery, even if the same instance was added again in the meantime. Item subscriptions stay synchronized with the collection even while notifications are disabled. To react to add, remove, replace, or reset operations, use `CollectionChanged` or `CollectionChangedEventListener`.
+
+Items are subscribed when the first handler is attached and unsubscribed when the last handler is removed, so a collection without `ItemPropertyChanged` handlers does not listen to its items at all. While a handler is attached, each observed item references the collection through its `PropertyChanged` event, so items that outlive the collection keep it alive. Remove your handlers when they are no longer needed.
+
+Like the collections themselves, `ItemPropertyChanged` is not synchronized with mutations. Handlers may be added and removed concurrently with each other, but not while another thread mutates the collection; synchronize those with your own lock, or use the concurrent collections. If subscribing to an item's `PropertyChanged` throws during a mutation, the mutation is still applied and its notifications are raised before the exception propagates.
+
+The event is declared on `IItemPropertyObservable<T>`, which `IObservableList<T>` and `IObservableCollection<T>` inherit. Other collection types (such as `ObservableViewList` or the concurrent collections) do not implement it. The event arguments type is `ItemPropertyChangedEventArgs<T>` in the `LiteObservableCollections` namespace.
+
+`CollectionItemPropertyChangedListener<T>` provides item property notifications for any source that implements both `IEnumerable<T>` and `INotifyCollectionChanged`; the event `sender` is the listener. It raises synchronously on the thread that changed the item and is not affected by the source's `IsNotifyEnabled` or `EventDispatcher`. For `ObservableList<T>` and `ObservableCollection<T>` it shares the collection's item subscriptions, which stay synchronized even while the collection's notifications are disabled. For other sources it maintains subscriptions from the source's collection-change events across add, remove, replace, reset, and duplicate references; mutations for which the source suppresses `CollectionChanged` cannot be observed. Dispose the listener to release its item subscriptions.
 
 `CollectionChangedEventListener` provides the same pattern for collection events and can filter handlers by `NotifyCollectionChangedAction`:
 
@@ -176,12 +185,27 @@ listener.RegisterHandler(nameof(Person.Name), (_, _) =>
 
 > `ObservableViewList` refreshes itself when its source collection changes. An item's `PropertyChanged` event does not automatically reapply the view's filter or sort; handle the item event and call `view.Refresh()` when needed.
 
+## Migrating from 5.x to 6.0
+
+6.0 contains the following breaking changes:
+
+- `CollectionItemPropertyChangedEventArgs<T>` has been removed. Use `ItemPropertyChangedEventArgs<T>` in the `LiteObservableCollections` namespace instead; it keeps the `Item` and `PropertyChangedEventArgs` members and adds `PropertyName`.
+- `CollectionItemPropertyChangedListener<T>.ItemPropertyChanged` is now an `EventHandler<ItemPropertyChangedEventArgs<T>>`. Handlers that spell out the old argument type must be updated; lambdas without explicit parameter types compile unchanged. Code compiled against 5.x must be recompiled.
+- `IObservableList<T>` and `IObservableCollection<T>` now inherit `IItemPropertyObservable<T>`. Custom implementations of these interfaces must implement the `ItemPropertyChanged` event.
+- The `where T : class, INotifyPropertyChanged` constraint on `CollectionItemPropertyChangedListener<T>` has been removed; items that are not reference types implementing `INotifyPropertyChanged` are ignored.
+
+Behavior changes:
+
+- `Remove(item)` now reports the instance stored in the collection in `CollectionChanged.OldItems`, instead of the argument passed in. This is only observable when items are equal by `Equals` but are different instances, and it matches `System.Collections.ObjectModel.ObservableCollection<T>`.
+- When attached to `ObservableList<T>` or `ObservableCollection<T>`, `CollectionItemPropertyChangedListener<T>` no longer depends on `CollectionChanged`, so it also tracks items added while the collection's `IsNotifyEnabled` is false.
+- `ObservableList<T>` and `ObservableCollection<T>` reuse cached `PropertyChangedEventArgs` instances for `Count` and `Item[]`, and a cached `NotifyCollectionChangedEventArgs` instance for `Reset`. Do not rely on receiving a distinct event-args instance per notification.
+
 ## Why AddRange?
 
 The `AddRange` method allows you to efficiently add multiple items at once, reducing the number of notifications and improving performance in UI scenarios.
 
-- `ObservableList<T>.AddRange` triggers a `Reset` event for maximum compatibility.
-- `ObservableCollection<T>.AddRange` triggers a single `Add` event with all new items, which is more efficient for most UI frameworks.
+- By default, `AddRange` and `RemoveRange` on both `ObservableList<T>` and `ObservableCollection<T>` trigger a single `Reset` event (`RemoveRange` only does so when at least one item was removed). This is the most compatible choice: WPF's `CollectionView`, for example, does not support multi-item `Add` events.
+- Set `IsNotifyOnEachInRange` to true to raise one `Add` or `Remove` event per item instead, for example to animate individual insertions and deletions.
 
 ## License
 
