@@ -48,6 +48,26 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     public bool IsNotifyEnabled { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether item <see cref="INotifyPropertyChanged"/> subscriptions are maintained so that
+    /// <see cref="ItemPropertyChanged"/> can be raised.
+    /// The default is false. While false, the list does not listen to item property changes, and
+    /// <see cref="ItemPropertyChanged"/> is not raised even if handlers are attached.
+    /// Set this property to true to enable the feature and receive the event.
+    /// </summary>
+    public bool IsItemPropertyChangedEnabled
+    {
+        get => field;
+        set
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            _itemPropertyChangeHost?.OnItemPropertyChangedEnabledChanged();
+        }
+    }
+
+    /// <summary>
     /// Initializes a new empty ObservableList.
     /// </summary>
     public ObservableList()
@@ -133,8 +153,12 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     /// notifications are disabled.
     /// </para>
     /// <para>
-    /// Items are subscribed when the first handler is attached and unsubscribed when the last one is removed.
-    /// While a handler is attached, every observed item references this list through its
+    /// Handlers do not receive this event unless <see cref="IsItemPropertyChangedEnabled"/> is true.
+    /// The default is false: item <see cref="INotifyPropertyChanged"/> subscriptions are not created, which avoids
+    /// the cost of listening to every item. Set <see cref="IsItemPropertyChangedEnabled"/> to true to enable
+    /// listening and receive the event. While enabled, items are subscribed when the first handler is attached and
+    /// unsubscribed when the last one is removed or the property is set back to false.
+    /// While a handler is attached and the feature is enabled, every observed item references this list through its
     /// <see cref="INotifyPropertyChanged.PropertyChanged"/> event, so items that outlive the list keep it alive;
     /// remove handlers when they are no longer needed. Adding and removing handlers is thread-safe.
     /// </para>
@@ -160,7 +184,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
             _items,
             this,
             () => IsNotifyEnabled,
-            () => EventDispatcher))!;
+            () => EventDispatcher,
+            () => IsItemPropertyChangedEnabled))!;
 
     /// <summary>
     /// Gets or sets the element at the specified index.

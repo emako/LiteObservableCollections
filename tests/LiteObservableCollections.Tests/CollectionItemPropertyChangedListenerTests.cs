@@ -131,7 +131,10 @@ public class CollectionItemPropertyChangedListenerTests
     public void Listener_Does_Not_Affect_Collection_ItemPropertyChanged_Gating()
     {
         Person person = new();
-        ObservableList<Person> source = new([person]);
+        ObservableList<Person> source = new([person])
+        {
+            IsItemPropertyChangedEnabled = true,
+        };
         using CollectionItemPropertyChangedListener<Person> listener = new(source);
 
         int listenerRaised = 0;

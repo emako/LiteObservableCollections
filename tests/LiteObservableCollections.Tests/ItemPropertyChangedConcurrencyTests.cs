@@ -13,7 +13,10 @@ public class ItemPropertyChangedConcurrencyTests
         for (int i = 0; i < Iterations; i++)
         {
             Person person = new();
-            ObservableList<Person> list = new([person]);
+            ObservableList<Person> list = new([person])
+            {
+                IsItemPropertyChangedEnabled = true,
+            };
             int first = 0;
             int second = 0;
 
@@ -41,7 +44,10 @@ public class ItemPropertyChangedConcurrencyTests
         for (int i = 0; i < Iterations; i++)
         {
             Person person = new();
-            ObservableList<Person> list = new([person]);
+            ObservableList<Person> list = new([person])
+            {
+                IsItemPropertyChangedEnabled = true
+            };
             EventHandler<ItemPropertyChangedEventArgs<Person>> existing = (_, _) => { };
             list.ItemPropertyChanged += existing;
             int added = 0;
