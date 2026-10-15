@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
-
 namespace LiteObservableCollections.Concurrent;
 
 /// <summary>
@@ -18,6 +17,10 @@ namespace LiteObservableCollections.Concurrent;
 /// <typeparam name="T">Type of items in the stack.</typeparam>
 public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<T>, ICollection, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+
     private readonly ConcurrentStack<T> _stack;
 
     /// <summary>
@@ -89,8 +92,8 @@ public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<
     public void Push(T item)
     {
         _stack.Push(item);
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
     }
 
     /// <summary>
@@ -101,8 +104,8 @@ public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<
     {
         if (_stack.TryPop(out var item))
         {
-            OnPropertyChanged(nameof(Count));
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item));
+            OnPropertyChanged(CountPropertyChanged);
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
             return item;
         }
         throw new InvalidOperationException("Stack empty");
@@ -128,8 +131,8 @@ public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<
 #else
         while (_stack.TryPop(out _)) { }
 #endif
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -149,8 +152,8 @@ public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<
             foreach (var x in items)
                 _stack.Push(x);
         }
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -161,16 +164,23 @@ public class ObservableConcurrentStack<T> : IEnumerable<T>, IReadOnlyCollection<
 
     IEnumerator IEnumerable.GetEnumerator() => _stack.GetEnumerator();
 
-    private void OnPropertyChanged(string propertyName) =>
-        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+    private bool CanRaiseCollectionChanged => IsNotifyEnabled && CollectionChanged != null;
 
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, T item)
+    {
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(action, item));
+    }
+
+    private void OnCollectionReset() => OnCollectionChanged(ResetCollectionChanged);
+
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!IsNotifyEnabled || PropertyChanged == null) return;
         PropertyChanged.Invoke(this, e);
     }
 
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
         if (!IsNotifyEnabled || CollectionChanged == null) return;
         CollectionChanged.Invoke(this, e);

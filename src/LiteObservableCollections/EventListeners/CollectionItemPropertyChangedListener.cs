@@ -1,6 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using LiteObservableCollections.Internals;
 
 namespace LiteObservableCollections.EventListeners;
 
@@ -8,18 +8,29 @@ namespace LiteObservableCollections.EventListeners;
 /// Observes <see cref="INotifyPropertyChanged.PropertyChanged"/> events from every item in an observable collection.
 /// Subscriptions are automatically maintained as items are added, removed, replaced, or reset.
 /// </summary>
-/// <typeparam name="T">The reference type of items to observe.</typeparam>
-public sealed class CollectionItemPropertyChangedListener<T> : IDisposable where T : class, INotifyPropertyChanged
+/// <typeparam name="T">
+/// The type of items in the source. Reference-type items that implement <see cref="INotifyPropertyChanged"/> are observed;
+/// other items are ignored.
+/// </typeparam>
+/// <remarks>
+/// <see cref="ItemPropertyChanged"/> is raised synchronously on the thread that raised the item's property change.
+/// It is not affected by the source's <c>IsNotifyEnabled</c> or <c>EventDispatcher</c>.
+/// </remarks>
+public sealed class CollectionItemPropertyChangedListener<T> : IItemPropertyObservable<T>, IDisposable
 {
+    private readonly object _gate = new();
     private readonly INotifyCollectionChanged _source;
-    private readonly IEnumerable<T> _items;
-    private readonly Dictionary<T, int> _subscriptionCounts = [with(ReferenceComparer.Instance)];
-    private bool _disposed;
+    private readonly IDirectItemPropertyChangeSource<T>? _directSource;
+    private readonly CollectionItemPropertyChangeNotifier<T>? _notifier;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Initializes a listener for the specified observable collection.
     /// </summary>
-    /// <param name="source">The collection whose items will be observed.</param>
+    /// <param name="source">
+    /// The collection whose items will be observed. Must implement both <see cref="IEnumerable{T}"/> and
+    /// <see cref="INotifyCollectionChanged"/>.
+    /// </param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="source"/> does not implement both required interfaces.</exception>
     public CollectionItemPropertyChangedListener(IEnumerable<T> source)
     {
@@ -27,151 +38,62 @@ public sealed class CollectionItemPropertyChangedListener<T> : IDisposable where
         if (source is not INotifyCollectionChanged observableSource)
             throw new ArgumentException("The source must implement INotifyCollectionChanged.", nameof(source));
 
-        _items = source;
         _source = observableSource;
 
-        foreach (T item in _items)
-            Subscribe(item);
-
-        _source.CollectionChanged += OnCollectionChanged;
+        if (source is IDirectItemPropertyChangeSource<T> directSource)
+        {
+            _directSource = directSource;
+            _directSource.AddDirectItemPropertyChangedHandler(OnItemPropertyChanged);
+        }
+        else
+        {
+            _notifier = new CollectionItemPropertyChangeNotifier<T>(source, this);
+            _notifier.DirectItemPropertyChanged += OnItemPropertyChanged;
+            _source.CollectionChanged += OnCollectionChanged;
+        }
     }
 
     /// <summary>
     /// Occurs when a property changes on an item currently contained in the source collection.
     /// </summary>
-    public event EventHandler<CollectionItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
+    /// <remarks>
+    /// This event is raised for item property changes only. For add, remove, replace, and reset notifications, subscribe to the source collection's <see cref="INotifyCollectionChanged.CollectionChanged"/> event or use <see cref="CollectionChangedEventListener"/>.
+    /// The event <c>sender</c> is this listener instance.
+    /// </remarks>
+    public event EventHandler<ItemPropertyChangedEventArgs<T>>? ItemPropertyChanged;
 
     /// <summary>
     /// Unsubscribes from the collection and all currently observed items.
     /// </summary>
     public void Dispose()
     {
-        if (_disposed) return;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _notifier?.Dispose();
+        }
 
-        _source.CollectionChanged -= OnCollectionChanged;
-        foreach (T item in _subscriptionCounts.Keys.ToArray())
-            item.PropertyChanged -= OnItemPropertyChanged;
+        if (_directSource != null)
+            _directSource.RemoveDirectItemPropertyChangedHandler(OnItemPropertyChanged);
+        else
+            _source.CollectionChanged -= OnCollectionChanged;
 
-        _subscriptionCounts.Clear();
-        _disposed = true;
         GC.SuppressFinalize(this);
     }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (_disposed) return;
-
-        switch (e.Action)
+        lock (_gate)
         {
-            case NotifyCollectionChangedAction.Add:
-                SubscribeItems(e.NewItems);
-                break;
-
-            case NotifyCollectionChangedAction.Remove:
-                UnsubscribeItems(e.OldItems);
-                break;
-
-            case NotifyCollectionChangedAction.Replace:
-                UnsubscribeItems(e.OldItems);
-                SubscribeItems(e.NewItems);
-                break;
-
-            case NotifyCollectionChangedAction.Reset:
-                ResetSubscriptions();
-                break;
+            if (!_disposed)
+                _notifier!.HandleCollectionChanged(e);
         }
     }
 
-    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnItemPropertyChanged(object? sender, ItemPropertyChangedEventArgs<T> e)
     {
-        if (sender is T item && !_disposed)
-            ItemPropertyChanged?.Invoke(this, new CollectionItemPropertyChangedEventArgs<T>(item, e));
+        if (!_disposed)
+            ItemPropertyChanged?.Invoke(this, e);
     }
-
-    private void SubscribeItems(System.Collections.IList? items)
-    {
-        if (items == null) return;
-        foreach (object? item in items)
-        {
-            if (item is T typedItem)
-                Subscribe(typedItem);
-        }
-    }
-
-    private void UnsubscribeItems(System.Collections.IList? items)
-    {
-        if (items == null) return;
-        foreach (object? item in items)
-        {
-            if (item is T typedItem)
-                Unsubscribe(typedItem);
-        }
-    }
-
-    private void Subscribe(T item)
-    {
-        if (_subscriptionCounts.TryGetValue(item, out int count))
-        {
-            _subscriptionCounts[item] = count + 1;
-            return;
-        }
-
-        _subscriptionCounts.Add(item, 1);
-        item.PropertyChanged += OnItemPropertyChanged;
-    }
-
-    private void Unsubscribe(T item)
-    {
-        if (!_subscriptionCounts.TryGetValue(item, out int count)) return;
-        if (count > 1)
-        {
-            _subscriptionCounts[item] = count - 1;
-            return;
-        }
-
-        _subscriptionCounts.Remove(item);
-        item.PropertyChanged -= OnItemPropertyChanged;
-    }
-
-    private void ResetSubscriptions()
-    {
-        foreach (T item in _subscriptionCounts.Keys.ToArray())
-            item.PropertyChanged -= OnItemPropertyChanged;
-
-        _subscriptionCounts.Clear();
-
-        foreach (T item in _items)
-            Subscribe(item);
-    }
-
-    private sealed class ReferenceComparer : IEqualityComparer<T>
-    {
-        public static ReferenceComparer Instance { get; } = new();
-
-        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
-
-        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
-    }
-}
-
-/// <summary>
-/// Provides the item and property-change details for <see cref="CollectionItemPropertyChangedListener{T}.ItemPropertyChanged"/>.
-/// </summary>
-/// <typeparam name="T">The type of the changed item.</typeparam>
-/// <remarks>
-/// Initializes event arguments for a changed collection item.
-/// </remarks>
-/// <param name="item">The item whose property changed.</param>
-/// <param name="propertyChangedEventArgs">The original property-change event arguments.</param>
-public sealed class CollectionItemPropertyChangedEventArgs<T>(T item, PropertyChangedEventArgs propertyChangedEventArgs) : EventArgs
-{
-    /// <summary>
-    /// Gets the item whose property changed.
-    /// </summary>
-    public T Item { get; } = item;
-
-    /// <summary>
-    /// Gets the original property-change event arguments.
-    /// </summary>
-    public PropertyChangedEventArgs PropertyChangedEventArgs { get; } = propertyChangedEventArgs ?? throw new ArgumentNullException(nameof(propertyChangedEventArgs));
 }

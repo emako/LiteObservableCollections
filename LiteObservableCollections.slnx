@@ -1,4 +1,11 @@
 <Solution>
-  <Project Path="src/LiteObservableCollections/LiteObservableCollections.csproj" />
-  <Project Path="src/WpfApp/WpfApp.csproj" />
+  <Folder Name="/examples/">
+    <Project Path="src/WpfApp/WpfApp.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/LiteObservableCollections/LiteObservableCollections.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LiteObservableCollections.Tests/LiteObservableCollections.Tests.csproj" />
+  </Folder>
 </Solution>
