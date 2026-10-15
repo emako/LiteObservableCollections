@@ -198,7 +198,7 @@ Behavior changes:
 
 - `Remove(item)` now reports the instance stored in the collection in `CollectionChanged.OldItems`, instead of the argument passed in. This is only observable when items are equal by `Equals` but are different instances, and it matches `System.Collections.ObjectModel.ObservableCollection<T>`.
 - When attached to `ObservableList<T>` or `ObservableCollection<T>`, `CollectionItemPropertyChangedListener<T>` no longer depends on `CollectionChanged`, so it also tracks items added while the collection's `IsNotifyEnabled` is false.
-- `ObservableList<T>` and `ObservableCollection<T>` reuse cached `PropertyChangedEventArgs` instances for `Count` and `Item[]`, and a cached `NotifyCollectionChangedEventArgs` instance for `Reset`. Do not rely on receiving a distinct event-args instance per notification.
+- All collections reuse cached `PropertyChangedEventArgs` instances for `Count`, `Item[]`, `Keys`, and `Values`, and a cached `NotifyCollectionChangedEventArgs` instance for `Reset`. Do not rely on receiving a distinct event-args instance per notification. Event arguments for other notifications are no longer created when nobody subscribes to `CollectionChanged`.
 
 ## Why AddRange?
 

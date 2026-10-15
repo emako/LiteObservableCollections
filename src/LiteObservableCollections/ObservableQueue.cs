@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-
 namespace LiteObservableCollections;
 
 /// <summary>
@@ -9,6 +8,10 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+
     private readonly Queue<T> _queue;
 
     /// <summary>
@@ -142,8 +145,8 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
     public void Enqueue(T item)
     {
         _queue.Enqueue(item);
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _queue.Count - 1));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Add, item, _queue.Count - 1);
     }
 
     /// <summary>
@@ -153,8 +156,8 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
     public T Dequeue()
     {
         T item = _queue.Dequeue();
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, 0));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, 0);
         return item;
     }
 
@@ -170,8 +173,8 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
     public void Clear()
     {
         _queue.Clear();
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -187,8 +190,8 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
             foreach (var x in items)
                 _queue.Enqueue(x);
         }
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -203,40 +206,59 @@ public class ObservableQueue<T> : IObservableQueue<T>, INotifyCollectionChanged,
     /// <returns>An enumerator for the queue.</returns>
     IEnumerator IEnumerable.GetEnumerator() => _queue.GetEnumerator();
 
-    /// <summary>
-    /// Raises the <see cref="PropertyChanged"/> event.
-    /// </summary>
-    /// <param name="propertyName">The name of the property that changed.</param>
-    private void OnPropertyChanged(string propertyName) =>
-        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+    private bool CanRaiseCollectionChanged => IsNotifyEnabled && CollectionChanged != null;
+
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, T item, int index)
+    {
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(action, item, index));
+    }
+
+    private void OnCollectionReset() => OnCollectionChanged(ResetCollectionChanged);
 
     /// <summary>
     /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
         if (!IsNotifyEnabled || CollectionChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            PostCollectionChanged(dispatcher, e);
             return;
         }
+
         CollectionChanged.Invoke(this, e);
     }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnCollectionChanged(NotifyCollectionChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostCollectionChanged(ICollectionEventDispatcher dispatcher, NotifyCollectionChangedEventArgs e)
+        => dispatcher.Post(() => CollectionChanged?.Invoke(this, e));
 
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!IsNotifyEnabled || PropertyChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            PostPropertyChanged(dispatcher, e);
             return;
         }
+
         PropertyChanged.Invoke(this, e);
     }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnPropertyChanged(PropertyChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostPropertyChanged(ICollectionEventDispatcher dispatcher, PropertyChangedEventArgs e)
+        => dispatcher.Post(() => PropertyChanged?.Invoke(this, e));
 }
 
 /// <summary>

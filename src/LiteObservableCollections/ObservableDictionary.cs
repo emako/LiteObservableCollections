@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-
 namespace LiteObservableCollections;
 
 #nullable disable warnings
@@ -11,10 +10,17 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TValue>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    /// <summary>
-    /// Indexer Name to notify that the this[] has changed.
-    /// </summary>
     private const string IndexerName = "Item[]";
+
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly PropertyChangedEventArgs IndexerPropertyChanged = new(IndexerName);
+
+    private static readonly PropertyChangedEventArgs KeysPropertyChanged = new("Keys");
+
+    private static readonly PropertyChangedEventArgs ValuesPropertyChanged = new("Values");
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
 
     /// <summary>
     /// The internal dictionary storing the collection elements.
@@ -112,16 +118,14 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
         get => _dict[key];
         set
         {
-            bool exists = _dict.ContainsKey(key);
-            TValue oldValue = exists ? _dict[key] : default!;
+            bool exists = _dict.TryGetValue(key, out TValue oldValue);
             _dict[key] = value;
-            OnPropertyChanged(nameof(Keys));
-            OnPropertyChanged(nameof(Values));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(IndexerName);
-            RaiseCollectionChanged(exists
-                ? new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, new KeyValuePair<TKey, TValue>(key, value), new KeyValuePair<TKey, TValue>(key, oldValue), IndexOfKey(key))
-                : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
+            OnPropertyChanged(KeysPropertyChanged);
+            OnPropertyChanged(ValuesPropertyChanged);
+            OnPropertyChanged(CountPropertyChanged);
+            OnPropertyChanged(IndexerPropertyChanged);
+            if (!CanRaiseCollectionChanged) return;
+            OnCollectionChanged(exists ? new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, new KeyValuePair<TKey, TValue>(key, value), new KeyValuePair<TKey, TValue>(key, oldValue), IndexOfKey(key)) : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value)));
         }
     }
 
@@ -153,11 +157,12 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     public void Add(TKey key, TValue value)
     {
         _dict.Add(key, value);
-        OnPropertyChanged(nameof(Keys));
-        OnPropertyChanged(nameof(Values));
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value), _dict.Count - 1));
+        OnPropertyChanged(KeysPropertyChanged);
+        OnPropertyChanged(ValuesPropertyChanged);
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new KeyValuePair<TKey, TValue>(key, value), _dict.Count - 1));
     }
 
     /// <summary>
@@ -168,13 +173,14 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     public bool Remove(TKey key)
     {
         if (!_dict.TryGetValue(key, out TValue? value)) return false;
-        int index = IndexOfKey(key);
+        int index = CanRaiseCollectionChanged ? IndexOfKey(key) : -1;
         _dict.Remove(key);
-        OnPropertyChanged(nameof(Keys));
-        OnPropertyChanged(nameof(Values));
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value), index));
+        OnPropertyChanged(KeysPropertyChanged);
+        OnPropertyChanged(ValuesPropertyChanged);
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new KeyValuePair<TKey, TValue>(key, value), index));
         return true;
     }
 
@@ -184,11 +190,11 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
     public void Clear()
     {
         _dict.Clear();
-        OnPropertyChanged(nameof(Keys));
-        OnPropertyChanged(nameof(Values));
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(KeysPropertyChanged);
+        OnPropertyChanged(ValuesPropertyChanged);
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionChanged(ResetCollectionChanged);
     }
 
     /// <summary>
@@ -204,11 +210,11 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
             foreach (var kv in items)
                 _dict.Add(kv.Key, kv.Value);
         }
-        OnPropertyChanged(nameof(Keys));
-        OnPropertyChanged(nameof(Values));
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(KeysPropertyChanged);
+        OnPropertyChanged(ValuesPropertyChanged);
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionChanged(ResetCollectionChanged);
     }
 
     /// <summary>
@@ -281,40 +287,51 @@ public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TV
         return -1;
     }
 
-    /// <summary>
-    /// Raises the <see cref="PropertyChanged"/> event.
-    /// </summary>
-    /// <param name="propertyName">The name of the property that changed.</param>
-    private void OnPropertyChanged(string propertyName) =>
-        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+    private bool CanRaiseCollectionChanged => IsNotifyEnabled && CollectionChanged != null;
 
     /// <summary>
     /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
         if (!IsNotifyEnabled || CollectionChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            PostCollectionChanged(dispatcher, e);
             return;
         }
+
         CollectionChanged.Invoke(this, e);
     }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnCollectionChanged(NotifyCollectionChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostCollectionChanged(ICollectionEventDispatcher dispatcher, NotifyCollectionChangedEventArgs e)
+        => dispatcher.Post(() => CollectionChanged?.Invoke(this, e));
 
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!IsNotifyEnabled || PropertyChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            PostPropertyChanged(dispatcher, e);
             return;
         }
+
         PropertyChanged.Invoke(this, e);
     }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnPropertyChanged(PropertyChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostPropertyChanged(ICollectionEventDispatcher dispatcher, PropertyChangedEventArgs e)
+        => dispatcher.Post(() => PropertyChanged?.Invoke(this, e));
 }
 
 /// <summary>

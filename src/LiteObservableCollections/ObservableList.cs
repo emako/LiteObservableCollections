@@ -14,14 +14,13 @@ namespace LiteObservableCollections;
 /// </summary>
 public partial class ObservableList<T> : IObservableList<T>, IDirectItemPropertyChangeSource<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
-    /// <summary>
-    /// Indexer Name to notify that the this[] has changed.
-    /// </summary>
     private const string IndexerName = "Item[]";
 
-    private static readonly PropertyChangedEventArgs CountChangedEventArgs = new(nameof(Count));
-    private static readonly PropertyChangedEventArgs IndexerChangedEventArgs = new(IndexerName);
-    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChangedEventArgs = new(NotifyCollectionChangedAction.Reset);
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly PropertyChangedEventArgs IndexerPropertyChanged = new(IndexerName);
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
 
     /// <summary>
     /// The internal list storing the collection elements.
@@ -193,8 +192,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
             }
             finally
             {
-                RaisePropertyChanged(IndexerChangedEventArgs);
-                RaiseCollectionReplaced(value, oldItem, index);
+                OnPropertyChanged(IndexerPropertyChanged);
+                OnCollectionReplaced(value, oldItem, index);
             }
         }
     }
@@ -222,8 +221,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         }
         finally
         {
-            RaiseCountAndIndexerChanged();
-            RaiseCollectionChanged(NotifyCollectionChangedAction.Add, item, _items.Count - 1);
+            OnCountAndIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, _items.Count - 1);
         }
     }
 
@@ -249,8 +248,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
             }
             finally
             {
-                RaiseCountAndIndexerChanged();
-                RaiseCollectionReset();
+                OnCountAndIndexerChanged();
+                OnCollectionReset();
             }
         }
     }
@@ -287,8 +286,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         {
             if (anyRemoved)
             {
-                RaiseCountAndIndexerChanged();
-                RaiseCollectionReset();
+                OnCountAndIndexerChanged();
+                OnCollectionReset();
             }
         }
     }
@@ -311,8 +310,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         }
         finally
         {
-            RaiseCountAndIndexerChanged();
-            RaiseCollectionChanged(NotifyCollectionChangedAction.Remove, removedItem, index);
+            OnCountAndIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, removedItem, index);
         }
         return true;
     }
@@ -329,8 +328,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         }
         finally
         {
-            RaiseCountAndIndexerChanged();
-            RaiseCollectionReset();
+            OnCountAndIndexerChanged();
+            OnCollectionReset();
         }
     }
 
@@ -350,8 +349,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         }
         finally
         {
-            RaiseCountAndIndexerChanged();
-            RaiseCollectionReset();
+            OnCountAndIndexerChanged();
+            OnCollectionReset();
         }
     }
 
@@ -428,8 +427,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         }
         finally
         {
-            RaiseCountAndIndexerChanged();
-            RaiseCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
+            OnCountAndIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
         }
     }
 
@@ -447,8 +446,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         }
         finally
         {
-            RaiseCountAndIndexerChanged();
-            RaiseCollectionChanged(NotifyCollectionChangedAction.Remove, oldItem, index);
+            OnCountAndIndexerChanged();
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, oldItem, index);
         }
     }
 
@@ -468,8 +467,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
         T item = _items[oldIndex];
         _items.RemoveAt(oldIndex);
         _items.Insert(newIndex, item);
-        RaisePropertyChanged(IndexerChangedEventArgs);
-        RaiseCollectionMoved(item, newIndex, oldIndex);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionMoved(item, newIndex, oldIndex);
     }
 
     /// <summary>
@@ -487,8 +486,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     public void Reverse()
     {
         _items.Reverse();
-        RaisePropertyChanged(IndexerChangedEventArgs);
-        RaiseCollectionReset();
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -497,8 +496,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     public void Sort()
     {
         _items.Sort();
-        RaisePropertyChanged(IndexerChangedEventArgs);
-        RaiseCollectionReset();
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -508,8 +507,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     public void Sort(IComparer<T> comparer)
     {
         _items.Sort(comparer);
-        RaisePropertyChanged(IndexerChangedEventArgs);
-        RaiseCollectionReset();
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -519,8 +518,8 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     public void Sort(Comparison<T> comparison)
     {
         _items.Sort(comparison);
-        RaisePropertyChanged(IndexerChangedEventArgs);
-        RaiseCollectionReset();
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -551,51 +550,52 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     public int BinarySearch(int index, int count, T item, IComparer<T>? comparer)
         => _items.BinarySearch(index, count, item, comparer);
 
-    private void RaiseCountAndIndexerChanged()
+    private void OnCountAndIndexerChanged()
     {
-        RaisePropertyChanged(CountChangedEventArgs);
-        RaisePropertyChanged(IndexerChangedEventArgs);
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
     }
 
     private bool CanRaiseCollectionChanged => IsNotifyEnabled && CollectionChanged != null;
 
-    private void RaiseCollectionChanged(NotifyCollectionChangedAction action, T item, int index)
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, T item, int index)
     {
         if (CanRaiseCollectionChanged)
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(action, item, index));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(action, item, index));
     }
 
-    private void RaiseCollectionReplaced(T newItem, T oldItem, int index)
+    private void OnCollectionReplaced(T newItem, T oldItem, int index)
     {
         if (CanRaiseCollectionChanged)
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, newItem, oldItem, index));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, newItem, oldItem, index));
     }
 
-    private void RaiseCollectionMoved(T item, int newIndex, int oldIndex)
+    private void OnCollectionMoved(T item, int newIndex, int oldIndex)
     {
         if (CanRaiseCollectionChanged)
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
     }
 
-    private void RaiseCollectionReset() => RaiseCollectionChanged(ResetCollectionChangedEventArgs);
+    private void OnCollectionReset() => OnCollectionChanged(ResetCollectionChanged);
 
     /// <summary>
     /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (!CanRaiseCollectionChanged) return;
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
         ICollectionEventDispatcher? dispatcher = EventDispatcher;
         if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
             PostCollectionChanged(dispatcher, e);
             return;
         }
-        CollectionChanged?.Invoke(this, e);
+
+        CollectionChanged.Invoke(this, e);
     }
 
     /// <remarks>
-    /// Kept separate from <see cref="RaiseCollectionChanged(NotifyCollectionChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// Kept separate from <see cref="OnCollectionChanged(NotifyCollectionChangedEventArgs)"/> so the closure is only allocated when posting.
     /// </remarks>
     private void PostCollectionChanged(ICollectionEventDispatcher dispatcher, NotifyCollectionChangedEventArgs e)
         => dispatcher.Post(() => CollectionChanged?.Invoke(this, e));
@@ -603,7 +603,7 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!IsNotifyEnabled || PropertyChanged == null) return;
         ICollectionEventDispatcher? dispatcher = EventDispatcher;
@@ -612,11 +612,12 @@ public partial class ObservableList<T> : IObservableList<T>, IDirectItemProperty
             PostPropertyChanged(dispatcher, e);
             return;
         }
-        PropertyChanged?.Invoke(this, e);
+
+        PropertyChanged.Invoke(this, e);
     }
 
     /// <remarks>
-    /// Kept separate from <see cref="RaisePropertyChanged"/> so the closure is only allocated when posting.
+    /// Kept separate from <see cref="OnPropertyChanged(PropertyChangedEventArgs)"/> so the closure is only allocated when posting.
     /// </remarks>
     private void PostPropertyChanged(ICollectionEventDispatcher dispatcher, PropertyChangedEventArgs e)
         => dispatcher.Post(() => PropertyChanged?.Invoke(this, e));

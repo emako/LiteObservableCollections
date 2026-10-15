@@ -164,11 +164,11 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
         finally
         {
             if (raiseNotified)
-                RaiseItemPropertyChanged(subscription, args);
+                OnItemPropertyChanged(subscription, args);
         }
     }
 
-    private void RaiseItemPropertyChanged(Subscription subscription, ItemPropertyChangedEventArgs<T> args)
+    private void OnItemPropertyChanged(Subscription subscription, ItemPropertyChangedEventArgs<T> args)
     {
         ICollectionEventDispatcher? dispatcher = _getDispatcher?.Invoke();
         if (dispatcher != null && !dispatcher.IsCurrentContext)
@@ -181,7 +181,7 @@ internal sealed class CollectionItemPropertyChangeNotifier<T> : IDisposable
     }
 
     /// <remarks>
-    /// Kept separate from <see cref="RaiseItemPropertyChanged"/> so the closure is only allocated when posting.
+    /// Kept separate from <see cref="OnItemPropertyChanged(Subscription, ItemPropertyChangedEventArgs{T})"/> so the closure is only allocated when posting.
     /// </remarks>
     private void PostItemPropertyChanged(
         ICollectionEventDispatcher dispatcher,

@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-
 namespace LiteObservableCollections;
 
 /// <summary>
@@ -9,6 +8,10 @@ namespace LiteObservableCollections;
 /// </summary>
 public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChanged, INotifyPropertyChanged
 {
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+
     private readonly HashSet<T> _set;
 
     /// <summary>
@@ -107,8 +110,8 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
         bool added = _set.Add(item);
         if (added)
         {
-            OnPropertyChanged(nameof(Count));
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item));
+            OnPropertyChanged(CountPropertyChanged);
+            OnCollectionChanged(NotifyCollectionChangedAction.Add, item);
         }
         return added;
     }
@@ -129,8 +132,8 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
         bool removed = _set.Remove(item);
         if (removed)
         {
-            OnPropertyChanged(nameof(Count));
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item));
+            OnPropertyChanged(CountPropertyChanged);
+            OnCollectionChanged(NotifyCollectionChangedAction.Remove, item);
         }
         return removed;
     }
@@ -141,8 +144,8 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     public void Clear()
     {
         _set.Clear();
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -158,8 +161,8 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
             foreach (var x in items)
                 _set.Add(x);
         }
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -254,40 +257,59 @@ public class ObservableHashSet<T> : IObservableHashSet<T>, INotifyCollectionChan
     /// <param name="other">The collection to compare to the current hash set.</param>
     public void UnionWith(IEnumerable<T> other) => _set.UnionWith(other);
 
-    /// <summary>
-    /// Raises the <see cref="PropertyChanged"/> event.
-    /// </summary>
-    /// <param name="propertyName">The name of the property that changed.</param>
-    private void OnPropertyChanged(string propertyName) =>
-        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+    private bool CanRaiseCollectionChanged => IsNotifyEnabled && CollectionChanged != null;
+
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, T item)
+    {
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(action, item));
+    }
+
+    private void OnCollectionReset() => OnCollectionChanged(ResetCollectionChanged);
 
     /// <summary>
     /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
         if (!IsNotifyEnabled || CollectionChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+            PostCollectionChanged(dispatcher, e);
             return;
         }
+
         CollectionChanged.Invoke(this, e);
     }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnCollectionChanged(NotifyCollectionChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostCollectionChanged(ICollectionEventDispatcher dispatcher, NotifyCollectionChangedEventArgs e)
+        => dispatcher.Post(() => CollectionChanged?.Invoke(this, e));
 
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
     /// </summary>
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!IsNotifyEnabled || PropertyChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
         {
-            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
+            PostPropertyChanged(dispatcher, e);
             return;
         }
+
         PropertyChanged.Invoke(this, e);
     }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnPropertyChanged(PropertyChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostPropertyChanged(ICollectionEventDispatcher dispatcher, PropertyChangedEventArgs e)
+        => dispatcher.Post(() => PropertyChanged?.Invoke(this, e));
 }
 
 /// <summary>

@@ -10,8 +10,9 @@ namespace LiteObservableCollections.Concurrent.ComponentModel;
 /// <typeparam name="T">Reference type stored by the concurrent object.</typeparam>
 public class ObservableConcurrentObject<T> : INotifyPropertyChanged where T : class
 {
+    private static readonly PropertyChangedEventArgs ValueChangedEventArgs = new(nameof(Value));
+
     private readonly ConcurrentObject<T> _inner;
-    private const string ValuePropertyName = nameof(Value);
 
     /// <summary>
     /// Raised when the value changes.
@@ -38,7 +39,7 @@ public class ObservableConcurrentObject<T> : INotifyPropertyChanged where T : cl
         set
         {
             _inner.AddOrUpdate(value);
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(ValuePropertyName));
+            PropertyChanged?.Invoke(this, ValueChangedEventArgs);
         }
     }
 
@@ -51,11 +52,11 @@ public class ObservableConcurrentObject<T> : INotifyPropertyChanged where T : cl
     public void Update(Action<T?> updater)
     {
         _inner.Update(updater);
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(ValuePropertyName));
+        PropertyChanged?.Invoke(this, ValueChangedEventArgs);
     }
 
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> for a property name (useful when inner value mutates its state without replacement).
     /// </summary>
-    public void RaisePropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    public void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

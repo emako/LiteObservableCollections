@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-
 namespace LiteObservableCollections;
 
 /// <summary>
@@ -12,11 +11,20 @@ namespace LiteObservableCollections;
 /// <typeparam name="TResult">The type of elements in the view after projection.</typeparam>
 public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INotifyCollectionChanged, INotifyPropertyChanged, IDisposable
 {
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+
     private readonly ObservableList<TSource> _source;
+
     private readonly Func<TSource, TResult> _selector;
+
     private readonly List<TResult> _view = [];
+
     private Func<TSource, bool>? _filter;
+
     private Comparison<TResult>? _sortComparison;
+
     private bool _disposed;
 
     /// <summary>
@@ -122,8 +130,8 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
         if (_sortComparison != null)
             _view.Sort(_sortComparison);
 
-        OnPropertyChanged(nameof(Count));
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnCollectionChanged(ResetCollectionChanged);
     }
 
     /// <summary>
@@ -141,7 +149,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     {
         _sortComparison = (a, b) => Comparer<TResult>.Default.Compare(a!, b!);
         _view.Sort();
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnCollectionChanged(ResetCollectionChanged);
     }
 
     /// <summary>
@@ -153,7 +161,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     {
         _sortComparison = comparer.Compare;
         _view.Sort(comparer);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnCollectionChanged(ResetCollectionChanged);
     }
 
     /// <summary>
@@ -165,7 +173,7 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
     {
         _sortComparison = comparison;
         _view.Sort(comparison);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnCollectionChanged(ResetCollectionChanged);
     }
 
     /// <summary>
@@ -183,37 +191,6 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
         Refresh();
     }
 
-    private void OnPropertyChanged(string propertyName) =>
-        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
-
-    /// <summary>
-    /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
-    /// </summary>
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
-    {
-        if (!IsNotifyEnabled || CollectionChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
-        {
-            EventDispatcher.Post(() => CollectionChanged?.Invoke(this, e));
-            return;
-        }
-        CollectionChanged.Invoke(this, e);
-    }
-
-    /// <summary>
-    /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
-    /// </summary>
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
-    {
-        if (!IsNotifyEnabled || PropertyChanged == null) return;
-        if (EventDispatcher != null && !EventDispatcher.IsCurrentContext)
-        {
-            EventDispatcher.Post(() => PropertyChanged?.Invoke(this, e));
-            return;
-        }
-        PropertyChanged.Invoke(this, e);
-    }
-
     /// <summary>
     /// Releases resources and unsubscribes from the source collection.
     /// </summary>
@@ -224,6 +201,50 @@ public class ObservableViewList<TSource, TResult> : IReadOnlyList<TResult>, INot
         _source.CollectionChanged -= OnSourceCollectionChanged;
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// Raises <see cref="CollectionChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || CollectionChanged == null) return;
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
+        {
+            PostCollectionChanged(dispatcher, e);
+            return;
+        }
+
+        CollectionChanged.Invoke(this, e);
+    }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnCollectionChanged(NotifyCollectionChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostCollectionChanged(ICollectionEventDispatcher dispatcher, NotifyCollectionChangedEventArgs e)
+        => dispatcher.Post(() => CollectionChanged?.Invoke(this, e));
+
+    /// <summary>
+    /// Raises <see cref="PropertyChanged"/> on the dispatcher's context when <see cref="EventDispatcher"/> is set; otherwise raises on the current thread.
+    /// </summary>
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        if (!IsNotifyEnabled || PropertyChanged == null) return;
+        ICollectionEventDispatcher? dispatcher = EventDispatcher;
+        if (dispatcher != null && !dispatcher.IsCurrentContext)
+        {
+            PostPropertyChanged(dispatcher, e);
+            return;
+        }
+
+        PropertyChanged.Invoke(this, e);
+    }
+
+    /// <remarks>
+    /// Kept separate from <see cref="OnPropertyChanged(PropertyChangedEventArgs)"/> so the closure is only allocated when posting.
+    /// </remarks>
+    private void PostPropertyChanged(ICollectionEventDispatcher dispatcher, PropertyChangedEventArgs e)
+        => dispatcher.Post(() => PropertyChanged?.Invoke(this, e));
 }
 
 /// <summary>

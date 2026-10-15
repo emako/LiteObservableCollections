@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using LiteObservableCollections.Internals;
 
 namespace LiteObservableCollections.Concurrent;
 
@@ -18,7 +19,15 @@ namespace LiteObservableCollections.Concurrent;
 public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyCollectionChanged, INotifyPropertyChanged
 {
     private const string IndexerName = "Item[]";
+
+    private static readonly PropertyChangedEventArgs CountPropertyChanged = new("Count");
+
+    private static readonly PropertyChangedEventArgs IndexerPropertyChanged = new(IndexerName);
+
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+
     private readonly List<T> _items = [];
+
     private readonly object _sync = new();
 
     /// <summary>
@@ -60,8 +69,8 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
                 old = _items[index];
                 _items[index] = value;
             }
-            OnPropertyChanged(IndexerName);
-            RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, old, index));
+            OnPropertyChanged(IndexerPropertyChanged);
+            OnCollectionReplaced(value, old, index);
         }
     }
 
@@ -89,9 +98,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
             _items.Add(item);
             index = _items.Count - 1;
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
     }
 
     /// <summary>
@@ -110,9 +119,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
         {
             _items.AddRange(items);
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -144,9 +153,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
         {
             _items.InsertRange(index, items);
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -161,9 +170,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
             if (index < 0) return false;
             _items.RemoveAt(index);
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Remove, item, index);
         return true;
     }
 
@@ -186,9 +195,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
                 _items.Remove(item);
             }
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -197,9 +206,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
     public void Clear()
     {
         lock (_sync) { _items.Clear(); }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -215,9 +224,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
             if (items != null)
                 _items.AddRange(items);
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -253,9 +262,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
     public void Insert(int index, T item)
     {
         lock (_sync) { _items.Insert(index, item); }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Add, item, index);
     }
 
     /// <summary>
@@ -269,9 +278,9 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
             old = _items[index];
             _items.RemoveAt(index);
         }
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, old, index));
+        OnPropertyChanged(CountPropertyChanged);
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionChanged(NotifyCollectionChangedAction.Remove, old, index);
     }
 
     /// <summary>
@@ -289,8 +298,8 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
             _items.RemoveAt(oldIndex);
             _items.Insert(newIndex, item);
         }
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionMoved(item, newIndex, oldIndex);
     }
 
     /// <summary>
@@ -311,8 +320,8 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
         {
             _items.Sort(comparer);
         }
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -339,8 +348,8 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
             _items.Clear();
             _items.AddRange(sorted);
         }
-        OnPropertyChanged(IndexerName);
-        RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        OnPropertyChanged(IndexerPropertyChanged);
+        OnCollectionReset();
     }
 
     /// <summary>
@@ -359,16 +368,35 @@ public class ConcurrentObservableCollection<T> : IList<T>, ICollection, INotifyC
     bool ICollection.IsSynchronized => false;
     int ICollection.Count => Count;
 
-    private void OnPropertyChanged(string propertyName) =>
-        RaisePropertyChanged(new PropertyChangedEventArgs(propertyName));
+    private bool CanRaiseCollectionChanged => IsNotifyEnabled && CollectionChanged != null;
 
-    private void RaisePropertyChanged(PropertyChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedAction action, T item, int index)
+    {
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(action, item, index));
+    }
+
+    private void OnCollectionReplaced(T newItem, T oldItem, int index)
+    {
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, newItem, oldItem, index));
+    }
+
+    private void OnCollectionMoved(T item, int newIndex, int oldIndex)
+    {
+        if (CanRaiseCollectionChanged)
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex));
+    }
+
+    private void OnCollectionReset() => OnCollectionChanged(ResetCollectionChanged);
+
+    private void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!IsNotifyEnabled || PropertyChanged == null) return;
         PropertyChanged.Invoke(this, e);
     }
 
-    private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs e)
+    private void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
         if (!IsNotifyEnabled || CollectionChanged == null) return;
         CollectionChanged.Invoke(this, e);
